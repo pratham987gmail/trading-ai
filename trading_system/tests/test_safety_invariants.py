@@ -211,6 +211,81 @@ class TestRiskCeilings:
         with pytest.raises(ValueError, match="LIVE_TRADING_ACKNOWLEDGED"):
             Settings(**self.BASE, TRADING_MODE="LIVE", LIVE_TRADING_ACKNOWLEDGED=False)
 
+    def test_micro_account_ceiling_widens_below_threshold(self) -> None:
+        """A ₹20,000 account cannot express the standard 2% ceiling and trade.
+
+        The two-tier exception must actually accept the values a small
+        account needs, not just theoretically permit them.
+        """
+        settings = Settings(
+            **self.BASE,
+            TOTAL_CAPITAL=20_000,
+            RISK_PER_TRADE_PCT=10.0,
+            MAX_DAILY_LOSS_PCT=12.0,
+            MAX_WEEKLY_LOSS_PCT=20.0,
+            MAX_OPEN_POSITIONS=2,
+        )
+        assert settings.risk_amount_per_trade == 2000.0
+
+    def test_micro_account_ceiling_is_not_unlimited(self) -> None:
+        """The widened tier still has a ceiling of its own."""
+        with pytest.raises(ValueError, match="per-trade ceiling"):
+            Settings(**self.BASE, TOTAL_CAPITAL=20_000, RISK_PER_TRADE_PCT=16.0)
+
+    def test_micro_account_open_positions_ceiling_enforced(self) -> None:
+        """A small account is also capped on concurrent positions."""
+        with pytest.raises(ValueError, match="position.*ceiling"):
+            Settings(**self.BASE, TOTAL_CAPITAL=20_000, MAX_OPEN_POSITIONS=3)
+
+    def test_ceiling_reverts_to_standard_above_the_micro_threshold(self) -> None:
+        """Adding capital past the threshold snaps the ceiling back down."""
+        with pytest.raises(ValueError, match="per-trade ceiling"):
+            Settings(**self.BASE, TOTAL_CAPITAL=50_001, RISK_PER_TRADE_PCT=10.0)
+
+    def test_trades_per_day_above_per_week_rejected(self) -> None:
+        """A daily cap the weekly cap could never actually bind against."""
+        with pytest.raises(ValueError, match="MAX_TRADES_PER_WEEK"):
+            Settings(**self.BASE, MAX_TRADES_PER_DAY=10, MAX_TRADES_PER_WEEK=5)
+
+    def test_full_auto_rejected_without_live_mode(self) -> None:
+        """FULL_AUTO cannot be reached by flipping one setting."""
+        with pytest.raises(ValueError, match="TRADING_MODE must be LIVE"):
+            Settings(**self.BASE, AUTONOMY_LEVEL="FULL_AUTO")
+
+    def test_full_auto_rejected_without_unlock_token(self) -> None:
+        """LIVE + acknowledged is still not enough without the gate's token."""
+        with pytest.raises(ValueError, match="FULL_AUTO_UNLOCK_TOKEN"):
+            Settings(
+                **self.BASE,
+                AUTONOMY_LEVEL="FULL_AUTO",
+                TRADING_MODE="LIVE",
+                LIVE_TRADING_ACKNOWLEDGED=True,
+            )
+
+    def test_full_auto_accepted_when_fully_satisfied(self) -> None:
+        """Every precondition met: the configuration loads."""
+        settings = Settings(
+            **self.BASE,
+            AUTONOMY_LEVEL="FULL_AUTO",
+            TRADING_MODE="LIVE",
+            LIVE_TRADING_ACKNOWLEDGED=True,
+            FULL_AUTO_UNLOCK_TOKEN="issued-by-gate-script",
+        )
+        assert settings.AUTONOMY_LEVEL == "FULL_AUTO"
+
+    def test_safe_dump_never_exposes_the_unlock_token(self) -> None:
+        """Presence is reported; the token value itself is not."""
+        settings = Settings(
+            **self.BASE,
+            AUTONOMY_LEVEL="FULL_AUTO",
+            TRADING_MODE="LIVE",
+            LIVE_TRADING_ACKNOWLEDGED=True,
+            FULL_AUTO_UNLOCK_TOKEN="super-secret-token-value",
+        )
+        dumped = settings.safe_dump()
+        assert dumped["full_auto_unlock_token_set"] is True
+        assert "super-secret-token-value" not in repr(dumped)
+
     def test_totp_rejects_six_digit_code(self) -> None:
         """Pasting the rotating code instead of the seed is the common setup error."""
         payload = {**self.BASE, "ANGEL_TOTP_SECRET": "123456"}

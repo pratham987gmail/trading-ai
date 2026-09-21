@@ -42,6 +42,15 @@ from backtest.broker_simulator import (
 )
 from backtest.costs import CostModel, InstrumentType
 from backtest.metrics import compute_metrics
+from config.settings import (
+    MAX_ALLOWED_DAILY_LOSS_PCT,
+    MAX_ALLOWED_RISK_PER_TRADE_PCT,
+    MAX_ALLOWED_WEEKLY_LOSS_PCT,
+    MICRO_ACCOUNT_CAPITAL_THRESHOLD,
+    MICRO_ACCOUNT_MAX_DAILY_LOSS_PCT,
+    MICRO_ACCOUNT_MAX_RISK_PER_TRADE_PCT,
+    MICRO_ACCOUNT_MAX_WEEKLY_LOSS_PCT,
+)
 from backtest.strategy import MarketView, Strategy
 from backtest.types import (
     AccountState,
@@ -133,15 +142,35 @@ class BacktestConfig:
 
         if self.initial_capital <= 0:
             raise ValueError("initial_capital must be positive")
-        if self.risk_per_trade_pct <= 0 or self.risk_per_trade_pct > 2.0:
+
+        # Same two-tier ceiling as config.settings.Settings, and from the same
+        # constants, so a backtest can never validate a risk profile the live
+        # system would refuse to run (and vice versa). Below the micro-account
+        # capital threshold the standard 2%/5%/10% charter ceilings are
+        # unworkable — see the constants' docstring in config/settings.py.
+        if self.initial_capital <= MICRO_ACCOUNT_CAPITAL_THRESHOLD:
+            risk_ceiling = MICRO_ACCOUNT_MAX_RISK_PER_TRADE_PCT
+            daily_ceiling = MICRO_ACCOUNT_MAX_DAILY_LOSS_PCT
+            weekly_ceiling = MICRO_ACCOUNT_MAX_WEEKLY_LOSS_PCT
+        else:
+            risk_ceiling = MAX_ALLOWED_RISK_PER_TRADE_PCT
+            daily_ceiling = MAX_ALLOWED_DAILY_LOSS_PCT
+            weekly_ceiling = MAX_ALLOWED_WEEKLY_LOSS_PCT
+
+        if self.risk_per_trade_pct <= 0 or self.risk_per_trade_pct > risk_ceiling:
             raise ValueError(
                 f"risk_per_trade_pct={self.risk_per_trade_pct} outside the charter "
-                "range (0, 2]. The 2% per-trade ceiling is a hard limit."
+                f"range (0, {risk_ceiling}]. The {risk_ceiling}% per-trade ceiling "
+                "is a hard limit."
             )
-        if self.max_daily_loss_pct > 5.0:
-            raise ValueError("max_daily_loss_pct exceeds the charter's 5% ceiling")
-        if self.max_weekly_loss_pct > 10.0:
-            raise ValueError("max_weekly_loss_pct exceeds the charter's 10% ceiling")
+        if self.max_daily_loss_pct > daily_ceiling:
+            raise ValueError(
+                f"max_daily_loss_pct exceeds the charter's {daily_ceiling}% ceiling"
+            )
+        if self.max_weekly_loss_pct > weekly_ceiling:
+            raise ValueError(
+                f"max_weekly_loss_pct exceeds the charter's {weekly_ceiling}% ceiling"
+            )
         if self.max_open_positions < 1:
             raise ValueError("max_open_positions must be at least 1")
 

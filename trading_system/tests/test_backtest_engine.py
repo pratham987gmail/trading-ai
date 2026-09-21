@@ -753,12 +753,37 @@ class TestConfigLimits:
             BacktestConfig(risk_per_trade_pct=0.0)
 
     def test_daily_cap_above_the_ceiling_rejected(self) -> None:
-        with pytest.raises(ValueError, match="5% ceiling"):
+        with pytest.raises(ValueError, match="ceiling"):
             BacktestConfig(max_daily_loss_pct=6.0)
 
     def test_weekly_cap_above_the_ceiling_rejected(self) -> None:
-        with pytest.raises(ValueError, match="10% ceiling"):
+        with pytest.raises(ValueError, match="ceiling"):
             BacktestConfig(max_weekly_loss_pct=12.0)
+
+    def test_micro_account_widens_the_ceiling(self) -> None:
+        """A small account gets the wider two-tier ceiling automatically.
+
+        See MICRO_ACCOUNT_* in config.settings: below the capital threshold,
+        the standard 2%/5%/10% ceilings are unusably small (2% of ₹20,000 is
+        below the minimum loss on a single index option position).
+        """
+        config = BacktestConfig(
+            initial_capital=20_000,
+            risk_per_trade_pct=10.0,
+            max_daily_loss_pct=12.0,
+            max_weekly_loss_pct=20.0,
+        )
+        assert config.risk_per_trade_pct == 10.0
+
+    def test_micro_account_still_has_a_ceiling(self) -> None:
+        """The widened tier is not unlimited."""
+        with pytest.raises(ValueError, match="charter"):
+            BacktestConfig(initial_capital=20_000, risk_per_trade_pct=16.0)
+
+    def test_ceiling_snaps_back_above_the_micro_account_threshold(self) -> None:
+        """Capital just above the threshold gets the standard, stricter tier."""
+        with pytest.raises(ValueError, match="charter"):
+            BacktestConfig(initial_capital=50_001, risk_per_trade_pct=10.0)
 
     def test_per_trade_risk_above_the_daily_cap_rejected(self) -> None:
         """Incoherent tiers are caught rather than left to confuse a run."""

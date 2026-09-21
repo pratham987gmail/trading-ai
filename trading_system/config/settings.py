@@ -41,11 +41,33 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MAX_ALLOWED_RISK_PER_TRADE_PCT = 2.0
 MAX_ALLOWED_DAILY_LOSS_PCT = 5.0
 MAX_ALLOWED_WEEKLY_LOSS_PCT = 10.0
+MAX_ALLOWED_OPEN_POSITIONS = 20
+
+# Two-tier exception for a small account. Below MICRO_ACCOUNT_CAPITAL_THRESHOLD
+# rupees, the standard percentage ceilings above are unworkable: on ₹20,000,
+# a 2% per-trade budget (₹400) is smaller than the minimum possible loss on a
+# single NIFTY or SENSEX option position, so the account could never place a
+# trade. The ceiling widens automatically for a declared micro-account and
+# automatically snaps back to the standard, stricter ceiling the moment
+# TOTAL_CAPITAL crosses the threshold — nobody has to remember to tighten it
+# back down after adding capital.
+MICRO_ACCOUNT_CAPITAL_THRESHOLD = 50_000.0
+MICRO_ACCOUNT_MAX_RISK_PER_TRADE_PCT = 15.0
+MICRO_ACCOUNT_MAX_DAILY_LOSS_PCT = 20.0
+MICRO_ACCOUNT_MAX_WEEKLY_LOSS_PCT = 30.0
+MICRO_ACCOUNT_MAX_OPEN_POSITIONS = 2
 
 TradingMode = Literal["ANALYSIS", "PAPER", "LIVE"]
 RiskProfile = Literal["CONSERVATIVE", "MODERATE", "AGGRESSIVE"]
 TradingStyle = Literal["SCALPING", "INTRADAY", "SWING", "POSITIONAL"]
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+# MANUAL: analyse/score only, no order access (today's behaviour).
+# SEMI_AUTO: engine proposes a trade; a human approves each entry; exits
+#            (stop/target/time) are then managed automatically.
+# FULL_AUTO: engine also enters without per-trade approval. Gated separately
+#            by _enforce_full_auto_gate — see that validator for what must be
+#            true before this value is even accepted.
+AutonomyLevel = Literal["MANUAL", "SEMI_AUTO", "FULL_AUTO"]
 
 
 class ConfigurationError(Exception):
@@ -142,6 +164,46 @@ class Settings(BaseSettings):
     # -- Mode -----------------------------------------------------------
     TRADING_MODE: TradingMode = "ANALYSIS"
     LIVE_TRADING_ACKNOWLEDGED: bool = False
+    AUTONOMY_LEVEL: AutonomyLevel = "MANUAL"
+    # Only meaningful once AUTONOMY_LEVEL=FULL_AUTO is requested. Written by
+    # the Phase-5/6 promotion gate (research/ml or execution gate script)
+    # after its own pass criteria are met, never hand-typed. Compared as an
+    # opaque string, not parsed, so its format is whatever the gate script
+    # chooses.
+    FULL_AUTO_UNLOCK_TOKEN: SecretStr = Field(default=SecretStr(""))
+
+    # -- Trade-frequency limits ------------------------------------------
+    # Independent of, and in addition to, the rupee loss caps above: a
+    # strategy can stay inside its daily/weekly loss budget while still
+    # over-trading (more entries than the edge can support, each one paying
+    # brokerage). These bound entry *count*, not loss amount.
+    MAX_TRADES_PER_DAY: int = Field(default=5, ge=1, le=50)
+    MAX_TRADES_PER_WEEK: int = Field(default=15, ge=1, le=200)
+    # Consecutive *losing* trades before the kill switch trips. The charter's
+    # default halt point is 5; a smaller account with fewer, larger positions
+    # should not wait that long to stop and reassess.
+    MAX_CONSECUTIVE_LOSSES: int = Field(default=5, ge=1, le=20)
+
+    # -- Order placement & compliance ------------------------------------
+    # Kept well under the SEBI 2025 retail-algo threshold (10 orders/second)
+    # that separates unregistered self-use from a registered algo provider.
+    # This is a hard client-side throttle, not merely a target.
+    ORDER_RATE_LIMIT_PER_SEC: float = Field(default=2.0, gt=0, le=9.0)
+    # Prefix stamped onto every order's broker tag so every order this system
+    # places is identifiable in the order book and in the audit export.
+    ORDER_TAG_PREFIX: str = "ALGOTRD"
+
+    # -- KPI (reporting only — see docstring on WEEKLY_TARGET_PCT) -------
+    # A target shown on the weekly report, nothing more. It must never be
+    # read by any sizing, entry-frequency, or risk-check code path: doing so
+    # would turn "we're behind this week" into "take a bigger/worse trade to
+    # catch up", which is precisely the revenge-trading pattern the charter's
+    # behavioural safeguards exist to prevent. 0 disables the KPI line.
+    WEEKLY_TARGET_PCT: float = Field(default=0.0, ge=0.0, le=100.0)
+    # Comma-separated underlyings in *preference order* — first tried first
+    # when more than one produces a qualifying candidate on the same pass.
+    # Empty means "no preference", i.e. whatever config.instruments lists.
+    PREFERRED_UNDERLYINGS: str = ""
 
     # -- Static IP / proxy ----------------------------------------------
     ANGEL_HTTPS_PROXY: SecretStr = Field(default=SecretStr(""))
@@ -232,24 +294,65 @@ class Settings(BaseSettings):
             )
         return self
 
+    @property
+    def _is_micro_account(self) -> bool:
+        """True when TOTAL_CAPITAL qualifies for the widened micro-account
+        ceiling. See the constants' docstring comment near the top of this
+        module for why this tier exists.
+        """
+        return self.TOTAL_CAPITAL <= MICRO_ACCOUNT_CAPITAL_THRESHOLD
+
+    @property
+    def _effective_risk_ceilings(self) -> tuple[float, float, float, int]:
+        """(per-trade %, daily %, weekly %, max open positions) ceiling
+        actually in force for this configuration's TOTAL_CAPITAL.
+        """
+        if self._is_micro_account:
+            return (
+                MICRO_ACCOUNT_MAX_RISK_PER_TRADE_PCT,
+                MICRO_ACCOUNT_MAX_DAILY_LOSS_PCT,
+                MICRO_ACCOUNT_MAX_WEEKLY_LOSS_PCT,
+                MICRO_ACCOUNT_MAX_OPEN_POSITIONS,
+            )
+        return (
+            MAX_ALLOWED_RISK_PER_TRADE_PCT,
+            MAX_ALLOWED_DAILY_LOSS_PCT,
+            MAX_ALLOWED_WEEKLY_LOSS_PCT,
+            MAX_ALLOWED_OPEN_POSITIONS,
+        )
+
     @model_validator(mode="after")
     def _enforce_risk_ceilings(self) -> Settings:
-        """Refuse to start with risk settings above the charter ceilings."""
+        """Refuse to start with risk settings above the charter ceilings.
+
+        The ceiling itself depends on TOTAL_CAPITAL: see
+        ``_effective_risk_ceilings`` and the micro-account constants above.
+        Above the micro-account threshold this is exactly the original
+        single-tier check.
+        """
+        risk_ceiling, daily_ceiling, weekly_ceiling, positions_ceiling = (
+            self._effective_risk_ceilings
+        )
         breaches: list[str] = []
-        if self.RISK_PER_TRADE_PCT > MAX_ALLOWED_RISK_PER_TRADE_PCT:
+        if self.RISK_PER_TRADE_PCT > risk_ceiling:
             breaches.append(
                 f"RISK_PER_TRADE_PCT={self.RISK_PER_TRADE_PCT} exceeds the "
-                f"{MAX_ALLOWED_RISK_PER_TRADE_PCT}% per-trade ceiling"
+                f"{risk_ceiling}% per-trade ceiling"
             )
-        if self.MAX_DAILY_LOSS_PCT > MAX_ALLOWED_DAILY_LOSS_PCT:
+        if self.MAX_DAILY_LOSS_PCT > daily_ceiling:
             breaches.append(
                 f"MAX_DAILY_LOSS_PCT={self.MAX_DAILY_LOSS_PCT} exceeds the "
-                f"{MAX_ALLOWED_DAILY_LOSS_PCT}% daily ceiling"
+                f"{daily_ceiling}% daily ceiling"
             )
-        if self.MAX_WEEKLY_LOSS_PCT > MAX_ALLOWED_WEEKLY_LOSS_PCT:
+        if self.MAX_WEEKLY_LOSS_PCT > weekly_ceiling:
             breaches.append(
                 f"MAX_WEEKLY_LOSS_PCT={self.MAX_WEEKLY_LOSS_PCT} exceeds the "
-                f"{MAX_ALLOWED_WEEKLY_LOSS_PCT}% weekly ceiling"
+                f"{weekly_ceiling}% weekly ceiling"
+            )
+        if self.MAX_OPEN_POSITIONS > positions_ceiling:
+            breaches.append(
+                f"MAX_OPEN_POSITIONS={self.MAX_OPEN_POSITIONS} exceeds the "
+                f"{positions_ceiling}-position ceiling"
             )
         if self.RISK_PER_TRADE_PCT > self.MAX_DAILY_LOSS_PCT:
             breaches.append(
@@ -260,6 +363,43 @@ class Settings(BaseSettings):
             breaches.append("MAX_DAILY_LOSS_PCT exceeds MAX_WEEKLY_LOSS_PCT")
         if breaches:
             raise ValueError("Risk configuration rejected: " + "; ".join(breaches))
+        return self
+
+    @model_validator(mode="after")
+    def _enforce_trade_frequency_coherence(self) -> Settings:
+        """A daily cap above the weekly cap could never bind."""
+        if self.MAX_TRADES_PER_DAY > self.MAX_TRADES_PER_WEEK:
+            raise ValueError(
+                f"MAX_TRADES_PER_DAY={self.MAX_TRADES_PER_DAY} exceeds "
+                f"MAX_TRADES_PER_WEEK={self.MAX_TRADES_PER_WEEK}; five trading "
+                "days could then exceed the weekly count on the daily limit "
+                "alone, so the weekly limit would never actually bind."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _enforce_full_auto_gate(self) -> Settings:
+        """FULL_AUTO must never be reachable by flipping one setting.
+
+        It requires LIVE mode, the existing live-trading acknowledgement, and
+        a non-empty unlock token. The token's *validity* (was it actually
+        issued by a passing promotion gate, for this account, still current)
+        is checked at runtime by the execution layer, not here — Settings has
+        no business reading the gate's state file. This validator only
+        refuses the configuration shape that could never be legitimate.
+        """
+        if self.AUTONOMY_LEVEL == "FULL_AUTO":
+            problems: list[str] = []
+            if self.TRADING_MODE != "LIVE":
+                problems.append("TRADING_MODE must be LIVE")
+            if not self.LIVE_TRADING_ACKNOWLEDGED:
+                problems.append("LIVE_TRADING_ACKNOWLEDGED must be true")
+            if not self.FULL_AUTO_UNLOCK_TOKEN.get_secret_value().strip():
+                problems.append("FULL_AUTO_UNLOCK_TOKEN must be set")
+            if problems:
+                raise ValueError(
+                    "AUTONOMY_LEVEL=FULL_AUTO requires: " + "; ".join(problems)
+                )
         return self
 
     @model_validator(mode="after")
@@ -353,6 +493,16 @@ class Settings(BaseSettings):
         return bool(self.API_AUTH_KEY.get_secret_value().strip())
 
     @property
+    def preferred_underlyings_list(self) -> list[str]:
+        """PREFERRED_UNDERLYINGS parsed into an ordered list, first = tried
+        first. Empty list means no preference.
+        """
+        raw = self.PREFERRED_UNDERLYINGS.strip()
+        if not raw:
+            return []
+        return [u.strip().upper() for u in raw.split(",") if u.strip()]
+
+    @property
     def log_dir_path(self) -> Path:
         """Absolute log directory, created on access."""
         path = Path(self.LOG_DIR)
@@ -421,8 +571,13 @@ class Settings(BaseSettings):
             "log_level": self.LOG_LEVEL,
             "trading_mode": self.TRADING_MODE,
             "live_trading_acknowledged": self.LIVE_TRADING_ACKNOWLEDGED,
+            "autonomy_level": self.AUTONOMY_LEVEL,
+            "full_auto_unlock_token_set": bool(
+                self.FULL_AUTO_UNLOCK_TOKEN.get_secret_value().strip()
+            ),
             "risk": {
                 "total_capital": self.TOTAL_CAPITAL,
+                "is_micro_account": self._is_micro_account,
                 "risk_per_trade_pct": self.RISK_PER_TRADE_PCT,
                 "risk_amount_per_trade": self.risk_amount_per_trade,
                 "max_daily_loss_pct": self.MAX_DAILY_LOSS_PCT,
@@ -430,8 +585,19 @@ class Settings(BaseSettings):
                 "max_weekly_loss_pct": self.MAX_WEEKLY_LOSS_PCT,
                 "max_weekly_loss_amount": self.max_weekly_loss_amount,
                 "max_open_positions": self.MAX_OPEN_POSITIONS,
+                "max_trades_per_day": self.MAX_TRADES_PER_DAY,
+                "max_trades_per_week": self.MAX_TRADES_PER_WEEK,
+                "max_consecutive_losses": self.MAX_CONSECUTIVE_LOSSES,
                 "risk_profile": self.RISK_PROFILE,
                 "trading_style": self.TRADING_STYLE,
+            },
+            "kpi": {
+                "weekly_target_pct": self.WEEKLY_TARGET_PCT,
+                "preferred_underlyings": self.preferred_underlyings_list,
+            },
+            "compliance": {
+                "order_rate_limit_per_sec": self.ORDER_RATE_LIMIT_PER_SEC,
+                "order_tag_prefix": self.ORDER_TAG_PREFIX,
             },
             "option_pricing": {
                 "risk_free_rate": self.RISK_FREE_RATE,

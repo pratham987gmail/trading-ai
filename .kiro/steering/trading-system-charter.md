@@ -44,6 +44,20 @@ capital.
 - **No trade without a stop-loss** and a stated invalidation condition.
 - **Risk per trade ≤ 2% of capital**, absolute ceiling. Daily loss cap 5%,
   weekly 10%. Defaults: 1% / 2% / 5%.
+  **Two-tier exception for a declared micro-account** (capital ≤ ₹50,000):
+  ≤15% per trade, ≤20% daily, ≤30% weekly, max 2 open positions, defined-risk
+  structures only (verticals or long options; no naked shorts, no 4-leg
+  condors). This exists because the standard 2% ceiling can be smaller than
+  the minimum loss on a single NIFTY/SENSEX option position at that capital,
+  which would make the system unable to ever place a trade. The wider tier
+  reverts to the standard ceiling automatically the moment capital crosses
+  the threshold — see `MICRO_ACCOUNT_*` in `config/settings.py`, the single
+  source of truth both the live risk engine and the backtester read from.
+- **The 10%/week (or any) profit target is a reporting KPI only.** It is
+  shown on the weekly report and must never be read by any sizing,
+  entry-frequency, or risk-check code path. Falling behind the target is
+  never a reason to take a larger, faster, or lower-quality trade — that is
+  the revenge-trading pattern the behavioural safeguards below exist to stop.
 - **Never average down.** Adding to losers is forbidden. Scaling up on winners
   is permitted only if the new entry independently qualifies.
 - **Never widen or remove a stop** to avoid realizing a loss.
@@ -70,6 +84,45 @@ capital.
   capital confirmation, and kill switch armed.
 
 State the active mode when it is relevant to the answer.
+
+## Autonomy levels
+
+Independent of trading mode. Applies only once mode is PAPER or LIVE.
+
+- **MANUAL** (default): analyse/score only, no order access.
+- **SEMI_AUTO**: the engine proposes a trade; a human approves each entry;
+  exits (stop, target, time, DTE) are then managed automatically once a
+  position is open — exits never require separate approval.
+- **FULL_AUTO**: the engine also enters without per-trade approval. Reachable
+  only after: (1) a backtest and walk-forward pass on recorded data, (2) a
+  minimum number of paper trades managed end-to-end with zero unresolved
+  reconciliation, (3) a minimum number of approved live trades at SEMI_AUTO,
+  and (4) a promotion-gate script has written an unlock token consumed by
+  `FULL_AUTO_UNLOCK_TOKEN`. This is enforced in code (`config/settings.py`,
+  `_enforce_full_auto_gate`) as well as here: `AUTONOMY_LEVEL=FULL_AUTO`
+  cannot be reached by editing one setting.
+
+The engine's decision vocabulary (`analysis/signal_engine.py`) reflects this:
+`NO TRADE`, `WATCHLIST ONLY`, `WAIT FOR VALIDATION` are always available.
+`PROPOSE_ENTRY` / `PROPOSE_EXIT` only become reachable once a strategy has a
+passing validation manifest for that underlying — an unvalidated strategy
+can be scored but never proposed as tradeable.
+
+## SEBI / exchange order-placement rules (LIVE mode)
+
+- Every order carries a broker order tag (`ORDER_TAG_PREFIX`) so every order
+  this system places is identifiable in the broker's order book and in this
+  system's own audit log.
+- Order rate is throttled client-side (`ORDER_RATE_LIMIT_PER_SEC`) well under
+  the 10 orders/second threshold that separates unregistered self-use from a
+  registered algo provider under SEBI's 2025 retail-algo framework.
+- Orders execute only from the IP address registered against the broker API
+  key (`REGISTERED_STATIC_IP`); a mismatch at startup blocks LIVE mode.
+- Limit orders only. No market orders on options.
+- This account only. No multi-account fan-out, no order placement on behalf
+  of anyone else.
+- Full audit trail: every place/modify/cancel/fill is logged with both local
+  and broker timestamps and is exportable on request.
 
 ## Required Session Parameters
 
