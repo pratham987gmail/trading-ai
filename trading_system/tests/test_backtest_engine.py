@@ -743,9 +743,12 @@ class TestConfigLimits:
     """The configuration cannot express a risk profile the charter forbids."""
 
     def test_risk_above_the_charter_ceiling_rejected(self) -> None:
-        """A backtest must not validate a strategy at unusable risk."""
+        """A backtest must not validate a strategy at unusable risk, at the
+        standard tier (capital above the small-account threshold — see the
+        micro/small-account tests elsewhere for those tiers' own ceilings).
+        """
         with pytest.raises(ValueError, match="charter"):
-            BacktestConfig(risk_per_trade_pct=5.0)
+            BacktestConfig(initial_capital=500_000, risk_per_trade_pct=5.0)
 
     def test_zero_risk_rejected(self) -> None:
         """A zero budget would size every trade to nothing."""
@@ -754,11 +757,11 @@ class TestConfigLimits:
 
     def test_daily_cap_above_the_ceiling_rejected(self) -> None:
         with pytest.raises(ValueError, match="ceiling"):
-            BacktestConfig(max_daily_loss_pct=6.0)
+            BacktestConfig(initial_capital=500_000, max_daily_loss_pct=6.0)
 
     def test_weekly_cap_above_the_ceiling_rejected(self) -> None:
         with pytest.raises(ValueError, match="ceiling"):
-            BacktestConfig(max_weekly_loss_pct=12.0)
+            BacktestConfig(initial_capital=500_000, max_weekly_loss_pct=12.0)
 
     def test_micro_account_widens_the_ceiling(self) -> None:
         """A small account gets the wider two-tier ceiling automatically.
@@ -781,9 +784,34 @@ class TestConfigLimits:
             BacktestConfig(initial_capital=20_000, risk_per_trade_pct=16.0)
 
     def test_ceiling_snaps_back_above_the_micro_account_threshold(self) -> None:
-        """Capital just above the threshold gets the standard, stricter tier."""
+        """Capital just above the micro threshold drops to the small-account
+        tier (8%), which still rejects a 10% request.
+        """
         with pytest.raises(ValueError, match="charter"):
             BacktestConfig(initial_capital=50_001, risk_per_trade_pct=10.0)
+
+    def test_small_account_widens_the_ceiling(self) -> None:
+        """₹1,00,000 at the standard 2% ceiling is the same ₹2,000/trade
+        budget the micro tier exists to fix, just at 5x the capital — see
+        SMALL_ACCOUNT_* in config.settings.
+        """
+        config = BacktestConfig(
+            initial_capital=100_000,
+            risk_per_trade_pct=8.0,
+            max_daily_loss_pct=12.0,
+            max_weekly_loss_pct=20.0,
+        )
+        assert config.risk_per_trade_pct == 8.0
+
+    def test_small_account_still_has_a_ceiling(self) -> None:
+        """The small-account tier is not unlimited."""
+        with pytest.raises(ValueError, match="charter"):
+            BacktestConfig(initial_capital=100_000, risk_per_trade_pct=9.0)
+
+    def test_ceiling_snaps_back_above_the_small_account_threshold(self) -> None:
+        """Capital past ₹2,00,000 gets the standard, stricter tier."""
+        with pytest.raises(ValueError, match="charter"):
+            BacktestConfig(initial_capital=200_001, risk_per_trade_pct=8.0)
 
     def test_per_trade_risk_above_the_daily_cap_rejected(self) -> None:
         """Incoherent tiers are caught rather than left to confuse a run."""

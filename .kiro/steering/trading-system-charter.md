@@ -44,14 +44,20 @@ capital.
 - **No trade without a stop-loss** and a stated invalidation condition.
 - **Risk per trade ≤ 2% of capital**, absolute ceiling. Daily loss cap 5%,
   weekly 10%. Defaults: 1% / 2% / 5%.
-  **Two-tier exception for a declared micro-account** (capital ≤ ₹50,000):
-  ≤15% per trade, ≤20% daily, ≤30% weekly, max 2 open positions, defined-risk
-  structures only (verticals or long options; no naked shorts, no 4-leg
-  condors). This exists because the standard 2% ceiling can be smaller than
-  the minimum loss on a single NIFTY/SENSEX option position at that capital,
-  which would make the system unable to ever place a trade. The wider tier
-  reverts to the standard ceiling automatically the moment capital crosses
-  the threshold — see `MICRO_ACCOUNT_*` in `config/settings.py`, the single
+  **Three-tier exception, by capital.** The standard 2%/5%/10% ceiling can
+  be smaller than the minimum loss on a single NIFTY/SENSEX option
+  position, which would make the system unable to ever place a real
+  (rather than far-OTM/near-worthless) trade — confirmed directly on real
+  recorded chains, see `research/reports/chain_replay_NIFTY_findings.md`.
+  - **Micro** (capital ≤ ₹50,000): ≤15% per trade, ≤20% daily, ≤30% weekly,
+    max 2 open positions.
+  - **Small** (₹50,000 < capital ≤ ₹2,00,000): ≤8% per trade, ≤12% daily,
+    ≤20% weekly, max 3 open positions.
+  - **Standard** (capital > ₹2,00,000): the base 2%/5%/10% ceiling above.
+  Every tier is defined-risk structures only (verticals, long options,
+  Iron Condor; no naked shorts). Each tier reverts to the next stricter one
+  automatically the moment capital crosses its threshold — see
+  `MICRO_ACCOUNT_*`/`SMALL_ACCOUNT_*` in `config/settings.py`, the single
   source of truth both the live risk engine and the backtester read from.
 - **The 10%/week (or any) profit target is a reporting KPI only.** It is
   shown on the weekly report and must never be read by any sizing,

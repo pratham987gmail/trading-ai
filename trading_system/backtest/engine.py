@@ -50,6 +50,10 @@ from config.settings import (
     MICRO_ACCOUNT_MAX_DAILY_LOSS_PCT,
     MICRO_ACCOUNT_MAX_RISK_PER_TRADE_PCT,
     MICRO_ACCOUNT_MAX_WEEKLY_LOSS_PCT,
+    SMALL_ACCOUNT_CAPITAL_THRESHOLD,
+    SMALL_ACCOUNT_MAX_DAILY_LOSS_PCT,
+    SMALL_ACCOUNT_MAX_RISK_PER_TRADE_PCT,
+    SMALL_ACCOUNT_MAX_WEEKLY_LOSS_PCT,
 )
 from backtest.strategy import MarketView, Strategy
 from backtest.types import (
@@ -143,15 +147,20 @@ class BacktestConfig:
         if self.initial_capital <= 0:
             raise ValueError("initial_capital must be positive")
 
-        # Same two-tier ceiling as config.settings.Settings, and from the same
-        # constants, so a backtest can never validate a risk profile the live
-        # system would refuse to run (and vice versa). Below the micro-account
-        # capital threshold the standard 2%/5%/10% charter ceilings are
-        # unworkable — see the constants' docstring in config/settings.py.
+        # Same three-tier ceiling as config.settings.Settings, and from the
+        # same constants, so a backtest can never validate a risk profile
+        # the live system would refuse to run (and vice versa). Below the
+        # micro-account/small-account capital thresholds the standard
+        # 2%/5%/10% charter ceilings are unworkable — see the constants'
+        # docstring in config/settings.py.
         if self.initial_capital <= MICRO_ACCOUNT_CAPITAL_THRESHOLD:
             risk_ceiling = MICRO_ACCOUNT_MAX_RISK_PER_TRADE_PCT
             daily_ceiling = MICRO_ACCOUNT_MAX_DAILY_LOSS_PCT
             weekly_ceiling = MICRO_ACCOUNT_MAX_WEEKLY_LOSS_PCT
+        elif self.initial_capital <= SMALL_ACCOUNT_CAPITAL_THRESHOLD:
+            risk_ceiling = SMALL_ACCOUNT_MAX_RISK_PER_TRADE_PCT
+            daily_ceiling = SMALL_ACCOUNT_MAX_DAILY_LOSS_PCT
+            weekly_ceiling = SMALL_ACCOUNT_MAX_WEEKLY_LOSS_PCT
         else:
             risk_ceiling = MAX_ALLOWED_RISK_PER_TRADE_PCT
             daily_ceiling = MAX_ALLOWED_DAILY_LOSS_PCT

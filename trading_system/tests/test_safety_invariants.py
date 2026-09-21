@@ -187,19 +187,22 @@ class TestRiskCeilings:
         assert settings.risk_amount_per_trade == 1000.0
 
     def test_per_trade_ceiling_enforced(self) -> None:
-        """Above 2% per trade is rejected."""
+        """Above 2% per trade is rejected at the standard tier (capital
+        above the small-account threshold — see TestAccountTiers for the
+        micro/small tiers' own, wider ceilings).
+        """
         with pytest.raises(ValueError, match="per-trade ceiling"):
-            Settings(**self.BASE, RISK_PER_TRADE_PCT=2.5)
+            Settings(**self.BASE, TOTAL_CAPITAL=500_000, RISK_PER_TRADE_PCT=2.5)
 
     def test_daily_ceiling_enforced(self) -> None:
-        """Above 5% daily is rejected."""
+        """Above 5% daily is rejected at the standard tier."""
         with pytest.raises(ValueError, match="daily ceiling"):
-            Settings(**self.BASE, MAX_DAILY_LOSS_PCT=6.0, MAX_WEEKLY_LOSS_PCT=8.0)
+            Settings(**self.BASE, TOTAL_CAPITAL=500_000, MAX_DAILY_LOSS_PCT=6.0, MAX_WEEKLY_LOSS_PCT=8.0)
 
     def test_weekly_ceiling_enforced(self) -> None:
-        """Above 10% weekly is rejected."""
+        """Above 10% weekly is rejected at the standard tier."""
         with pytest.raises(ValueError, match="weekly ceiling"):
-            Settings(**self.BASE, MAX_WEEKLY_LOSS_PCT=15.0)
+            Settings(**self.BASE, TOTAL_CAPITAL=500_000, MAX_WEEKLY_LOSS_PCT=15.0)
 
     def test_incoherent_limits_rejected(self) -> None:
         """A single trade must not be able to breach the daily cap."""
@@ -238,9 +241,40 @@ class TestRiskCeilings:
             Settings(**self.BASE, TOTAL_CAPITAL=20_000, MAX_OPEN_POSITIONS=3)
 
     def test_ceiling_reverts_to_standard_above_the_micro_threshold(self) -> None:
-        """Adding capital past the threshold snaps the ceiling back down."""
+        """Crossing the micro threshold drops to the small-account tier (8%),
+        which still rejects a 10% request.
+        """
         with pytest.raises(ValueError, match="per-trade ceiling"):
             Settings(**self.BASE, TOTAL_CAPITAL=50_001, RISK_PER_TRADE_PCT=10.0)
+
+    def test_small_account_ceiling_widens_above_the_micro_threshold(self) -> None:
+        """₹1,00,000 at the standard 2% ceiling is ₹2,000/trade — the exact
+        same rupee budget the micro tier exists to fix, just at 5x the
+        capital (see chain_replay_NIFTY_findings.md). The small-account
+        tier must actually accept the wider values a ₹1L account needs.
+        """
+        settings = Settings(
+            **self.BASE,
+            TOTAL_CAPITAL=100_000,
+            RISK_PER_TRADE_PCT=8.0,
+            MAX_DAILY_LOSS_PCT=12.0,
+            MAX_WEEKLY_LOSS_PCT=20.0,
+            MAX_OPEN_POSITIONS=3,
+        )
+        assert settings.risk_amount_per_trade == 8_000.0
+        assert settings.account_tier == "SMALL"
+
+    def test_small_account_ceiling_is_not_unlimited(self) -> None:
+        """The small-account tier's own ceiling still binds."""
+        with pytest.raises(ValueError, match="per-trade ceiling"):
+            Settings(**self.BASE, TOTAL_CAPITAL=100_000, RISK_PER_TRADE_PCT=9.0)
+
+    def test_ceiling_reverts_to_standard_above_the_small_account_threshold(self) -> None:
+        """Capital past ₹2,00,000 drops to the standard 2% ceiling."""
+        with pytest.raises(ValueError, match="per-trade ceiling"):
+            Settings(**self.BASE, TOTAL_CAPITAL=200_001, RISK_PER_TRADE_PCT=8.0)
+        settings = Settings(**self.BASE, TOTAL_CAPITAL=200_001, RISK_PER_TRADE_PCT=2.0)
+        assert settings.account_tier == "STANDARD"
 
     def test_trades_per_day_above_per_week_rejected(self) -> None:
         """A daily cap the weekly cap could never actually bind against."""

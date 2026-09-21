@@ -57,6 +57,21 @@ MICRO_ACCOUNT_MAX_DAILY_LOSS_PCT = 20.0
 MICRO_ACCOUNT_MAX_WEEKLY_LOSS_PCT = 30.0
 MICRO_ACCOUNT_MAX_OPEN_POSITIONS = 2
 
+# A third tier, above the micro-account band. ₹1,00,000 at the standard 2%
+# ceiling is still only ₹2,000/trade — the exact same rupee budget the
+# micro-account tier exists to fix, reproducing the same "budget forces a
+# far-OTM structure" failure documented in
+# research/reports/chain_replay_NIFTY_findings.md, just at 5x the capital.
+# This band gives a real near-the-money NIFTY vertical (~₹2,000-2,500 debit)
+# comfortable room without going all the way to the micro tier's 15%. Like
+# the micro tier, it snaps back to the standard ceiling automatically once
+# TOTAL_CAPITAL crosses its threshold.
+SMALL_ACCOUNT_CAPITAL_THRESHOLD = 200_000.0
+SMALL_ACCOUNT_MAX_RISK_PER_TRADE_PCT = 8.0
+SMALL_ACCOUNT_MAX_DAILY_LOSS_PCT = 12.0
+SMALL_ACCOUNT_MAX_WEEKLY_LOSS_PCT = 20.0
+SMALL_ACCOUNT_MAX_OPEN_POSITIONS = 3
+
 TradingMode = Literal["ANALYSIS", "PAPER", "LIVE"]
 RiskProfile = Literal["CONSERVATIVE", "MODERATE", "AGGRESSIVE"]
 TradingStyle = Literal["SCALPING", "INTRADAY", "SWING", "POSITIONAL"]
@@ -309,6 +324,22 @@ class Settings(BaseSettings):
         return self.TOTAL_CAPITAL <= MICRO_ACCOUNT_CAPITAL_THRESHOLD
 
     @property
+    def _is_small_account(self) -> bool:
+        """True when TOTAL_CAPITAL qualifies for the small-account ceiling —
+        above the micro tier, at or below SMALL_ACCOUNT_CAPITAL_THRESHOLD.
+        """
+        return MICRO_ACCOUNT_CAPITAL_THRESHOLD < self.TOTAL_CAPITAL <= SMALL_ACCOUNT_CAPITAL_THRESHOLD
+
+    @property
+    def account_tier(self) -> str:
+        """Which risk ceiling tier TOTAL_CAPITAL currently falls into."""
+        if self._is_micro_account:
+            return "MICRO"
+        if self._is_small_account:
+            return "SMALL"
+        return "STANDARD"
+
+    @property
     def _effective_risk_ceilings(self) -> tuple[float, float, float, int]:
         """(per-trade %, daily %, weekly %, max open positions) ceiling
         actually in force for this configuration's TOTAL_CAPITAL.
@@ -319,6 +350,13 @@ class Settings(BaseSettings):
                 MICRO_ACCOUNT_MAX_DAILY_LOSS_PCT,
                 MICRO_ACCOUNT_MAX_WEEKLY_LOSS_PCT,
                 MICRO_ACCOUNT_MAX_OPEN_POSITIONS,
+            )
+        if self._is_small_account:
+            return (
+                SMALL_ACCOUNT_MAX_RISK_PER_TRADE_PCT,
+                SMALL_ACCOUNT_MAX_DAILY_LOSS_PCT,
+                SMALL_ACCOUNT_MAX_WEEKLY_LOSS_PCT,
+                SMALL_ACCOUNT_MAX_OPEN_POSITIONS,
             )
         return (
             MAX_ALLOWED_RISK_PER_TRADE_PCT,
@@ -584,6 +622,7 @@ class Settings(BaseSettings):
             "risk": {
                 "total_capital": self.TOTAL_CAPITAL,
                 "is_micro_account": self._is_micro_account,
+                "account_tier": self.account_tier,
                 "risk_per_trade_pct": self.RISK_PER_TRADE_PCT,
                 "risk_amount_per_trade": self.risk_amount_per_trade,
                 "max_daily_loss_pct": self.MAX_DAILY_LOSS_PCT,
