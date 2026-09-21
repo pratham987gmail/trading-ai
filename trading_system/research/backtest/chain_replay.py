@@ -72,9 +72,37 @@ from config.instruments import CORE_INSTRUMENTS
 from config.settings import Settings
 from recorder.storage import ChainStorage
 
-# Structures actually implemented and defined-risk enough for a micro-account.
-# No IRON_CONDOR (four legs of brokerage), no credit verticals (not built).
+# Directional, defined-risk debit structures. Suited to a short 3-7 DTE
+# window (a directional gamma bet, per chain_replay_NIFTY_findings.md).
 REPLAY_STRATEGIES = ("BULL_CALL_SPREAD", "BEAR_PUT_SPREAD", "LONG_CALL", "LONG_PUT")
+
+# The non-directional, defined-risk alternative (direction="NEUTRAL"):
+# profits from theta decay and the volatility risk premium (implied vol
+# tends to exceed subsequently realized vol) rather than from calling
+# direction at all — see direction_predictability_NIFTY_findings.md for why
+# that made this worth testing. Professional practice uses a much longer
+# DTE window than the 3-7 day directional one above (30-45 DTE is the
+# standard "enough theta, still manageable gamma" range for condors).
+# **That range cannot be tested on this dataset**: a direct scan of every
+# recorded (timestamp, expiry) pair in data/option_chains.db found DTE
+# 0-10 is the ENTIRE range ever recorded (this legacy recorder tracked only
+# the near + next weekly expiry, never a monthly one). CONDOR_DTE_MIN/MAX
+# below use the longest slice actually available instead — a real,
+# disclosed deviation from professional practice, not a design choice, and
+# every report generated from it must say so.
+CONDOR_STRATEGIES = ("IRON_CONDOR",)
+CONDOR_DTE_MIN = 7.0
+CONDOR_DTE_MAX = 10.0
+# Professional practice: close at 50% of max profit rather than holding for
+# 100%, to bank most of the decay while stepping off well before gamma risk
+# dominates near expiry.
+CONDOR_TARGET_FRACTION_OF_MAX_PROFIT = 0.5
+# A simple, disclosed mechanical stop: exit once the loss reaches the
+# credit originally received (lose back what the trade could have made).
+# Real professional practice adjusts a threatened leg well before this
+# rather than taking the full stop — not modelled here; see the findings
+# doc's caveat on mechanical vs. actively managed condor backtests.
+CONDOR_STOP_MULTIPLE_OF_CREDIT = 1.0
 
 ENTRY_CHECK_TIME = "10:00"  # IST, first snapshot at/after this each day
 DTE_MIN = 3.0
@@ -154,6 +182,16 @@ def _generate_relaxed_liquidity(
 
 @dataclass
 class ReplayTrade:
+    """One simulated trade. ``net_debit_per_unit``'s sign carries the entry
+    cash flow uniformly across strategy types: positive means a debit was
+    paid (BULL_CALL_SPREAD, BEAR_PUT_SPREAD, LONG_CALL, LONG_PUT); negative
+    means a net credit was received (IRON_CONDOR). ``exit_value_per_unit``
+    is what closing the position right now would cost/return, in the same
+    sign convention (see ``_mark_to_market``), so ``net_pnl`` is always
+    ``(exit_value_per_unit - net_debit_per_unit) * quantity - costs``
+    regardless of which direction the cash flowed at entry.
+    """
+
     entry_date: date
     strategy: str
     direction: str
@@ -163,6 +201,7 @@ class ReplayTrade:
     net_debit_per_unit: float
     max_loss_after_costs: float
     entry_score: float | None
+    max_profit_after_costs: float | None = None
     entry_spot: float | None = None
     exit_date: date | None = None
     exit_spot: float | None = None
@@ -195,7 +234,13 @@ def _lot_size(underlying: str) -> int:
     return int(spec.lot_size)
 
 
-def _replay_settings(capital: float, risk_pct: float, max_moneyness_pct: float | None = None) -> Settings:
+def _replay_settings(
+    capital: float,
+    risk_pct: float,
+    max_moneyness_pct: float | None = None,
+    dte_min: float = DTE_MIN,
+    dte_max: float = DTE_MAX,
+) -> Settings:
     """Isolated settings for the replay: real .env never consulted."""
     return Settings(
         ANGEL_API_KEY="k",
@@ -208,8 +253,8 @@ def _replay_settings(capital: float, risk_pct: float, max_moneyness_pct: float |
         MAX_DAILY_LOSS_PCT=min(risk_pct * 1.2, 20.0),
         MAX_WEEKLY_LOSS_PCT=min(risk_pct * 2.0, 30.0),
         MAX_OPEN_POSITIONS=1,
-        SIGNAL_MIN_DAYS_TO_EXPIRY=DTE_MIN,
-        SIGNAL_MAX_DAYS_TO_EXPIRY=DTE_MAX,
+        SIGNAL_MIN_DAYS_TO_EXPIRY=dte_min,
+        SIGNAL_MAX_DAYS_TO_EXPIRY=dte_max,
         # RISK_TOO_FAR_FROM_MONEY (analysis/risk_filters.py): the shipped
         # gate this finding motivated. None reproduces the unmodified
         # engine exactly.
@@ -378,12 +423,22 @@ def _round_trip_cost_with_slippage(
 def _entry_legs(candidate: SpreadCandidate) -> list[dict[str, Any]]:
     """Normalise a live ``SpreadCandidate``'s legs into the plain-dict shape
     the rest of this module (``_mark_to_market``, ``_leg_quote``, the cost
-    loop) works with.
+    loop) works with. Both work generically over however many legs are
+    returned — 2 for a vertical/single long, 4 for an Iron Condor — since
+    they only ever sum role-signed per-leg prices.
+
+    An Iron Condor's ``SpreadCandidate`` only carries its call spread as
+    ``long_leg``/``short_leg`` (see ``analysis/spread_selector.py``'s
+    ``_evaluate_iron_condor``); its put spread is carried separately in
+    ``candidate.metadata`` (strike + entry premium only, no bid/ask/role
+    object), so it is reconstructed into the same leg-dict shape here
+    rather than requiring a different code path everywhere else in this
+    module.
     """
     raw_legs = [candidate.long_leg]
     if candidate.short_leg is not None:
         raw_legs.append(candidate.short_leg)
-    return [
+    legs = [
         {
             "role": leg.role,
             "strike": leg.strike,
@@ -393,6 +448,27 @@ def _entry_legs(candidate: SpreadCandidate) -> list[dict[str, Any]]:
         }
         for leg in raw_legs
     ]
+    if candidate.strategy == "IRON_CONDOR":
+        meta = candidate.metadata
+        legs.append(
+            {
+                "role": "SHORT",
+                "strike": meta["sell_put_strike"],
+                "type": "PE",
+                "price": meta["sell_put_premium"],
+                "_exit_price": None,
+            }
+        )
+        legs.append(
+            {
+                "role": "LONG",
+                "strike": meta["buy_put_strike"],
+                "type": "PE",
+                "price": meta["buy_put_premium"],
+                "_exit_price": None,
+            }
+        )
+    return legs
 
 
 def run_replay(
@@ -404,6 +480,9 @@ def run_replay(
     end: date | None = None,
     max_moneyness_pct: float | None = None,
     stop_fraction_of_debit: float = STOP_FRACTION_OF_DEBIT,
+    strategies: tuple[str, ...] = REPLAY_STRATEGIES,
+    dte_min: float = DTE_MIN,
+    dte_max: float = DTE_MAX,
 ) -> dict[str, Any]:
     """Run the day-by-day replay and return trades plus summary metrics.
 
@@ -416,18 +495,32 @@ def run_replay(
             (``analysis/risk_filters.py``) — this replay exercises the
             production code path, not a stand-in for it. ``None`` (the
             default) reproduces exactly what the shipped engine would
+            select today, with no moneyness constraint. Automatically
+            skipped for a NEUTRAL structure (Iron Condor) — see that
+            gate's own docstring in ``analysis/risk_filters.py``.
         stop_fraction_of_debit: Override for ``STOP_FRACTION_OF_DEBIT``,
             exposed as a parameter (rather than only the module constant)
             specifically so this can be swept experimentally — see the
             "stop too tight" finding in
-            ``research/reports/chain_replay_NIFTY_findings.md``.
-            select today, with no moneyness constraint.
+            ``research/reports/chain_replay_NIFTY_findings.md``. Only
+            applies to a debit structure's exit rule; an Iron Condor uses
+            ``CONDOR_STOP_MULTIPLE_OF_CREDIT`` instead (a different exit
+            shape for a credit structure).
+        strategies: Which structures ``analysis.signal_engine`` may
+            propose. ``REPLAY_STRATEGIES`` (default) for directional debit
+            verticals/longs, ``CONDOR_STRATEGIES`` for the non-directional
+            Iron Condor — see those constants' docstrings for why each
+            needs its own DTE window and exit rule, and pass the matching
+            ``dte_min``/``dte_max`` when switching.
+        dte_min: Floor of the expiry window, in days, both for entry
+            eligibility and ``Settings.SIGNAL_MIN_DAYS_TO_EXPIRY``.
+        dte_max: Ceiling of the expiry window, in days, same wiring.
     """
     project_root = Path(__file__).resolve().parent.parent.parent
     db_path = db_path or str(project_root / "data" / "option_chains.db")
     lot_size = _lot_size(underlying)
     exchange = CORE_INSTRUMENTS[underlying.upper()].fo_exchange
-    settings = _replay_settings(capital, risk_pct, max_moneyness_pct)
+    settings = _replay_settings(capital, risk_pct, max_moneyness_pct, dte_min, dte_max)
     cost_model = CostModel()
     store = ChainStorage(db_path)
 
@@ -485,12 +578,26 @@ def run_replay(
             exit_reason = None
             if exit_value is not None:
                 pnl_gross = (exit_value - open_trade.net_debit_per_unit) * open_trade.quantity
-                if pnl_gross >= TARGET_R_MULTIPLE * open_trade.max_loss_after_costs:
-                    exit_reason = "TARGET"
-                elif pnl_gross <= -stop_fraction_of_debit * (
-                    open_trade.net_debit_per_unit * open_trade.quantity
-                ):
-                    exit_reason = "STOP"
+                if open_trade.strategy == "IRON_CONDOR":
+                    # Credit structure: target is a fraction of max profit
+                    # (the credit received), stop is a multiple of that same
+                    # credit lost back — see CONDOR_TARGET_FRACTION_OF_MAX_
+                    # PROFIT / CONDOR_STOP_MULTIPLE_OF_CREDIT's docstrings.
+                    credit_received = -open_trade.net_debit_per_unit * open_trade.quantity
+                    if (
+                        open_trade.max_profit_after_costs is not None
+                        and pnl_gross >= CONDOR_TARGET_FRACTION_OF_MAX_PROFIT * open_trade.max_profit_after_costs
+                    ):
+                        exit_reason = "TARGET"
+                    elif pnl_gross <= -CONDOR_STOP_MULTIPLE_OF_CREDIT * credit_received:
+                        exit_reason = "STOP"
+                else:
+                    if pnl_gross >= TARGET_R_MULTIPLE * open_trade.max_loss_after_costs:
+                        exit_reason = "TARGET"
+                    elif pnl_gross <= -stop_fraction_of_debit * (
+                        open_trade.net_debit_per_unit * open_trade.quantity
+                    ):
+                        exit_reason = "STOP"
             if exit_reason is None and dte is not None and dte <= TIME_EXIT_DTE:
                 exit_reason = "TIME_DTE"
             if exit_reason is None and dte is not None and dte < 0:
@@ -527,7 +634,7 @@ def run_replay(
         eligible = [
             c
             for c in day_chains
-            if DTE_MIN <= (c.expiry - day).days <= DTE_MAX
+            if dte_min <= (c.expiry - day).days <= dte_max
         ]
         if not eligible:
             skipped_days_no_expiry += 1
@@ -542,17 +649,27 @@ def run_replay(
         # check_candidate, so the top-ranked survivor is already
         # moneyness-compliant; no post-filter needed here.
         accepted, _reason = _generate_relaxed_liquidity(
-            underlying, chain_dict, candles, settings, moment, REPLAY_STRATEGIES, max_candidates=1
+            underlying, chain_dict, candles, settings, moment, strategies, max_candidates=1
         )
         if not accepted:
             continue
         top = accepted[0]
-        if top.net_debit is None:
-            continue  # a credit/unbounded structure slipped through; skip
+        quantity = top.quantity
+        if top.strategy == "IRON_CONDOR":
+            # A credit structure: cash received up front, not paid. Stored
+            # as a negative "debit" so the same (exit_value - entry) P&L
+            # formula used everywhere else in this module works unchanged
+            # for both debit and credit structures — see ReplayTrade's
+            # docstring on net_debit_per_unit's sign convention.
+            if top.net_premium_per_unit is None:
+                continue
+            net_debit_per_unit = -top.net_premium_per_unit
+        else:
+            if top.net_debit is None:
+                continue  # a credit/unbounded structure slipped through; skip
+            net_debit_per_unit = top.net_debit / quantity if quantity else top.net_debit
 
         legs = _entry_legs(top)
-        quantity = top.quantity
-        net_debit_per_unit = top.net_debit / quantity if quantity else top.net_debit
 
         open_trade = ReplayTrade(
             entry_date=day,
@@ -564,6 +681,9 @@ def run_replay(
             net_debit_per_unit=net_debit_per_unit,
             max_loss_after_costs=float(top.max_loss_after_costs or 0.0),
             entry_score=top.score,
+            max_profit_after_costs=(
+                float(top.max_profit_after_costs) if top.max_profit_after_costs is not None else None
+            ),
             entry_spot=chain_dict["spot"],
         )
         open_legs = legs

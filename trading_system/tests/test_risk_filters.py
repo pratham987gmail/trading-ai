@@ -36,8 +36,16 @@ def candidate(
     single_leg: bool = False,
     costs: float = 125.0,
     long_strike: float = 24_500.0,
+    credit: bool = False,
 ) -> SpreadCandidate:
-    """Build a candidate with adjustable economics."""
+    """Build a candidate with adjustable economics.
+
+    ``credit=True`` models a credit structure (net_debit=None,
+    net_premium_per_unit is the premium *received*, not paid) — the shape
+    check_candidate's one-lot sizing must treat differently from a debit
+    structure's. Not a full 4-leg Iron Condor; just enough to exercise that
+    branch.
+    """
     estimate = CostEstimate(brokerage=80.0, entry_total=60.0, exit_total=65.0, orders=4)
     estimate.slippage = 0.0
     estimate.exchange_charges = costs - 80.0 if costs > 80.0 else 0.0
@@ -58,7 +66,8 @@ def candidate(
         ),
         days_to_expiry=days,
         net_premium_per_unit=net,
-        net_debit=net * LOT_SIZE,
+        net_debit=None if credit else net * LOT_SIZE,
+        net_premium=net * LOT_SIZE if credit else None,
         width=width,
         max_loss_before_costs=net * LOT_SIZE,
         max_loss_after_costs=max_loss,
@@ -105,6 +114,29 @@ class TestBudgetGate:
         cheap = candidate(net=12.0, width=50.0, max_loss=905.0, max_profit=1_565.0, risk_reward=1.7)
         result = check_candidate(cheap, RiskLimits(risk_budget=1_000.0))
         assert rr.RISK_MAX_LOSS_EXCEEDS_BUDGET not in codes(result)
+
+    def test_credit_structure_sized_on_width_minus_credit_not_on_credit_alone(self) -> None:
+        """A ~Rs30/unit credit is not "the risk per unit" for a condor.
+
+        Confirmed against real recorded NIFTY chains while wiring the Iron
+        Condor into chain_replay.py: every credit candidate was rejected
+        RISK_BELOW_ONE_LOT because the old code sized off the tiny credit
+        (net_premium_per_unit) as if it were a debit structure's max loss.
+        The real risk per unit is width - credit (here 100 - 30 = 70),
+        which at LOT_SIZE=65 and a Rs10,000 budget easily affords 1 lot
+        (70 * 65 = Rs4,550) - the bug rejected it anyway.
+        """
+        wing = candidate(net=30.0, width=100.0, max_loss=4_550.0, credit=True)
+        result = check_candidate(wing, RiskLimits(risk_budget=10_000.0))
+        assert rr.RISK_BELOW_ONE_LOT not in codes(result)
+
+    def test_credit_structure_still_refused_when_genuinely_too_small(self) -> None:
+        """The fix isn't "never reject a credit structure" - a real too-small
+        budget must still refuse it, just for the right per-unit risk.
+        """
+        wing = candidate(net=30.0, width=100.0, max_loss=4_550.0, credit=True)
+        result = check_candidate(wing, RiskLimits(risk_budget=50.0))
+        assert rr.RISK_BELOW_ONE_LOT in codes(result)
 
     def test_gate_binds_on_loss_after_costs_not_on_premium(self) -> None:
         """A debit of exactly the budget still breaches it once charges are paid."""
@@ -241,6 +273,16 @@ class TestMoneynessGate:
         far = candidate(long_strike=30_000.0)
         limits = RiskLimits(risk_budget=10_000.0, max_moneyness_pct=0.03)
         result = check_candidate(far, limits, context=None)
+        assert rr.RISK_TOO_FAR_FROM_MONEY not in codes(result)
+
+    def test_neutral_structure_is_exempt(self) -> None:
+        """An Iron Condor's wing is deliberately far from spot by design —
+        that is the protection, not a budget-forced bad strike, so the gate
+        must not apply to a NEUTRAL-direction candidate.
+        """
+        wing = candidate(long_strike=30_000.0, direction="NEUTRAL")
+        limits = RiskLimits(risk_budget=10_000.0, max_moneyness_pct=0.03)
+        result = check_candidate(wing, limits, context=bullish_context())
         assert rr.RISK_TOO_FAR_FROM_MONEY not in codes(result)
 
 

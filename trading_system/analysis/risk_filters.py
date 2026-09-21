@@ -233,8 +233,14 @@ def check_candidate(
     # that its real probability of profit is close to zero. That is a
     # different failure than "correctly sized" and the budget gate alone
     # cannot catch it — see RISK_TOO_FAR_FROM_MONEY's docstring reference.
+    #
+    # Only meaningful for a directional bet, where "long leg" means the
+    # strike whose payoff the trade is actually betting on. A NEUTRAL
+    # structure's long leg (e.g. an Iron Condor's wing) is deliberately far
+    # from spot BY DESIGN — that distance is the protection, not a symptom
+    # of the budget forcing a bad strike — so this gate does not apply.
     spot = context.spot if context is not None else None
-    if limits.max_moneyness_pct is not None and spot:
+    if limits.max_moneyness_pct is not None and spot and candidate.direction != "NEUTRAL":
         strike = candidate.long_leg.strike
         distance_pct = abs(strike - spot) / spot * 100.0
         if distance_pct > limits.max_moneyness_pct * 100.0:
@@ -255,9 +261,23 @@ def check_candidate(
     # A debit spread's stop is the structure expiring worthless, so the stop
     # distance is the debit itself. Cost-blind by design; the after-costs gate
     # below is the one that binds.
+    #
+    # A CREDIT structure (candidate.net_debit is None but net_premium_per_
+    # unit is set — currently only Iron Condor) is different: the premium
+    # received is not what is at risk, the wing width minus that premium
+    # is. Passing the tiny credit as "risk per unit" here would size the
+    # position off a number an order of magnitude smaller than the real
+    # risk, producing a nonsensical near-zero quantity and a false
+    # RISK_BELOW_ONE_LOT on every credit candidate regardless of whether it
+    # actually fits the budget — confirmed against real recorded chains
+    # while wiring up the Iron Condor for chain_replay.py.
+    if candidate.net_debit is None and candidate.width:
+        entry_price, stop_loss = candidate.width, net
+    else:
+        entry_price, stop_loss = net, 0.0
     quantity, explanation = calculate_position_size(
-        entry_price=net,
-        stop_loss=0.0,
+        entry_price=entry_price,
+        stop_loss=stop_loss,
         risk_amount=limits.risk_budget,
         lot_size=candidate.lot_size,
         max_capital=None,
