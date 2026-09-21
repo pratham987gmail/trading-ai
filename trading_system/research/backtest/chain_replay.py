@@ -178,7 +178,7 @@ def _lot_size(underlying: str) -> int:
     return int(spec.lot_size)
 
 
-def _replay_settings(capital: float, risk_pct: float) -> Settings:
+def _replay_settings(capital: float, risk_pct: float, max_moneyness_pct: float | None = None) -> Settings:
     """Isolated settings for the replay: real .env never consulted."""
     return Settings(
         ANGEL_API_KEY="k",
@@ -193,6 +193,10 @@ def _replay_settings(capital: float, risk_pct: float) -> Settings:
         MAX_OPEN_POSITIONS=1,
         SIGNAL_MIN_DAYS_TO_EXPIRY=DTE_MIN,
         SIGNAL_MAX_DAYS_TO_EXPIRY=DTE_MAX,
+        # RISK_TOO_FAR_FROM_MONEY (analysis/risk_filters.py): the shipped
+        # gate this finding motivated. None reproduces the unmodified
+        # engine exactly.
+        SIGNAL_MAX_MONEYNESS_PCT=max_moneyness_pct,
         # No bid/ask anywhere in this legacy dataset (see chain_replay.py's
         # module docstring) — LTP is the only price available, and this mode
         # is what makes spread_pricer add slippage as an explicit cost
@@ -388,19 +392,19 @@ def run_replay(
     Args:
         max_moneyness_pct: When set, only consider a candidate whose long
             (bought) leg sits within this fraction of spot — e.g. ``0.02``
-            keeps the near leg within 2%. Exists because the unconstrained
-            selector, budget-limited at a small account's risk cap, tends to
-            satisfy the rupee budget by drifting to far-OTM near-worthless
-            legs rather than a real near-the-money directional bet; see the
-            module docstring's findings section for what that produces.
-            ``None`` (the default) reproduces exactly what the shipped
-            engine would select today, unmodified.
+            keeps the near leg within 2%. Passed straight through to
+            ``Settings.SIGNAL_MAX_MONEYNESS_PCT``, which drives the real,
+            shipped ``RISK_TOO_FAR_FROM_MONEY`` gate
+            (``analysis/risk_filters.py``) — this replay exercises the
+            production code path, not a stand-in for it. ``None`` (the
+            default) reproduces exactly what the shipped engine would
+            select today, with no moneyness constraint.
     """
     project_root = Path(__file__).resolve().parent.parent.parent
     db_path = db_path or str(project_root / "data" / "option_chains.db")
     lot_size = _lot_size(underlying)
     exchange = CORE_INSTRUMENTS[underlying.upper()].fo_exchange
-    settings = _replay_settings(capital, risk_pct)
+    settings = _replay_settings(capital, risk_pct, max_moneyness_pct)
     cost_model = CostModel()
     store = ChainStorage(db_path)
 
@@ -509,20 +513,13 @@ def run_replay(
 
         chain_dict = _chain_dict(snap, lot_size, exchange)
         moment = snap.timestamp
-        # Ask for every survivor, not just the top one, when a moneyness
-        # filter is active: the best-scored candidate is often the one the
-        # filter exists to exclude, so top-1 alone would silently defeat it.
-        pool_size = 20 if max_moneyness_pct is not None else 1
+        # RISK_TOO_FAR_FROM_MONEY (via settings.SIGNAL_MAX_MONEYNESS_PCT,
+        # when set) already filters within enumerate_candidates/
+        # check_candidate, so the top-ranked survivor is already
+        # moneyness-compliant; no post-filter needed here.
         accepted, _reason = _generate_relaxed_liquidity(
-            underlying, chain_dict, candles, settings, moment, REPLAY_STRATEGIES, max_candidates=pool_size
+            underlying, chain_dict, candles, settings, moment, REPLAY_STRATEGIES, max_candidates=1
         )
-        if max_moneyness_pct is not None:
-            spot = chain_dict["spot"]
-            accepted = [
-                c
-                for c in accepted
-                if spot and abs(c.long_leg.strike - spot) / spot <= max_moneyness_pct
-            ]
         if not accepted:
             continue
         top = accepted[0]

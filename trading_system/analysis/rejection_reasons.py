@@ -72,6 +72,7 @@ RISK_NET_DEBIT_NOT_POSITIVE: Final = "RISK_NET_DEBIT_NOT_POSITIVE"
 RISK_EXPIRY_TOO_NEAR: Final = "RISK_EXPIRY_TOO_NEAR"
 RISK_EXPIRY_TOO_FAR: Final = "RISK_EXPIRY_TOO_FAR"
 RISK_ZERO_WIDTH: Final = "RISK_ZERO_WIDTH"
+RISK_TOO_FAR_FROM_MONEY: Final = "RISK_TOO_FAR_FROM_MONEY"
 
 # -- Cost ---------------------------------------------------------------
 
@@ -171,6 +172,12 @@ _TEXT: Final[dict[str, str]] = {
     RISK_NET_DEBIT_NOT_POSITIVE: (
         "Net debit {net_premium} is not positive, so this is not the debit structure "
         "it claims to be. Usually a stale quote on one leg."
+    ),
+    RISK_TOO_FAR_FROM_MONEY: (
+        "Long leg strike {strike} is {distance_pct}% from spot {spot}, beyond the "
+        "{maximum}% limit. A structure this far out of the money has a real "
+        "probability of profit close to zero regardless of how cheaply it fits "
+        "the risk budget."
     ),
     RISK_EXPIRY_TOO_NEAR: (
         "{days_to_expiry} days to expiry is inside the {minimum}-day floor, where "

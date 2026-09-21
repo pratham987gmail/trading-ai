@@ -156,6 +156,12 @@ class Settings(BaseSettings):
     SIGNAL_PRICE_SOURCE: str = "conservative"
     SIGNAL_MIN_LEG_VOLUME: int | None = Field(default=None, ge=0)
     SIGNAL_MIN_LEG_OPEN_INTEREST: int | None = Field(default=None, ge=0)
+    # Largest fraction the long (bought) leg's strike may sit from spot, e.g.
+    # 0.03 permits up to 3% out of the money. None applies no limit. See
+    # RiskLimits.max_moneyness_pct's docstring (analysis/risk_filters.py) for
+    # why the risk-budget gate alone is not enough at a small account's
+    # capital without this.
+    SIGNAL_MAX_MONEYNESS_PCT: float | None = Field(default=None, gt=0.0, le=1.0)
     # Gate on ever presenting an unbacktested structure as tradeable. Phase 4A has
     # no recorded option history to validate against, so this stays false and the
     # engine's best action never becomes BUY or SELL.
@@ -613,6 +619,7 @@ class Settings(BaseSettings):
                 "price_source": self.SIGNAL_PRICE_SOURCE,
                 "min_leg_volume": self.SIGNAL_MIN_LEG_VOLUME,
                 "min_leg_open_interest": self.SIGNAL_MIN_LEG_OPEN_INTEREST,
+                "max_moneyness_pct": self.SIGNAL_MAX_MONEYNESS_PCT,
                 "enable_unbacktested": self.SIGNAL_ENABLE_UNBACKTESTED,
             },
             "rate_limits": {

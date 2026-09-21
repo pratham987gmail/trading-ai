@@ -35,6 +35,7 @@ def candidate(
     strategy: str = "BULL_CALL_SPREAD",
     single_leg: bool = False,
     costs: float = 125.0,
+    long_strike: float = 24_500.0,
 ) -> SpreadCandidate:
     """Build a candidate with adjustable economics."""
     estimate = CostEstimate(brokerage=80.0, entry_total=60.0, exit_total=65.0, orders=4)
@@ -49,7 +50,7 @@ def candidate(
         lot_size=LOT_SIZE,
         lots=1,
         quantity=LOT_SIZE,
-        long_leg=SpreadLeg(role="LONG", strike=24_500.0, option_type="CE", price_used=120.0),
+        long_leg=SpreadLeg(role="LONG", strike=long_strike, option_type="CE", price_used=120.0),
         short_leg=(
             None
             if single_leg
@@ -204,6 +205,43 @@ class TestStructuralSanity:
     def test_zero_width_is_refused(self) -> None:
         result = check_candidate(candidate(width=0.0), RiskLimits(risk_budget=10_000.0))
         assert rr.RISK_ZERO_WIDTH in codes(result)
+
+
+class TestMoneynessGate:
+    """A cheap structure is not the same as a probable one.
+
+    See RISK_TOO_FAR_FROM_MONEY's docstring in rejection_reasons.py: the
+    budget gate alone cannot distinguish a real near-the-money bet from a
+    far-OTM structure that only fits the budget because it is nearly
+    worthless. Recorded evidence: chain_replay_NIFTY_findings.md.
+    """
+
+    def test_default_limit_is_none_and_never_rejects(self) -> None:
+        """Backward compatible: no existing caller opts into this by accident."""
+        far = candidate(long_strike=30_000.0)  # ~22% from the 24,500 spot below
+        result = check_candidate(far, RiskLimits(risk_budget=10_000.0), context=bullish_context())
+        assert rr.RISK_TOO_FAR_FROM_MONEY not in codes(result)
+
+    def test_far_from_spot_is_refused_when_limit_set(self) -> None:
+        """Spot is 24,500; a 30,000 strike is ~22% away."""
+        far = candidate(long_strike=30_000.0)
+        limits = RiskLimits(risk_budget=10_000.0, max_moneyness_pct=0.03)
+        result = check_candidate(far, limits, context=bullish_context())
+        assert rr.RISK_TOO_FAR_FROM_MONEY in codes(result)
+
+    def test_near_spot_passes_when_limit_set(self) -> None:
+        """Spot is 24,500; a 24,600 strike is well inside a 3% band."""
+        near = candidate(long_strike=24_600.0)
+        limits = RiskLimits(risk_budget=10_000.0, max_moneyness_pct=0.03)
+        result = check_candidate(near, limits, context=bullish_context())
+        assert rr.RISK_TOO_FAR_FROM_MONEY not in codes(result)
+
+    def test_no_context_skips_the_gate_rather_than_failing(self) -> None:
+        """No measured spot means no moneyness opinion, not a refusal."""
+        far = candidate(long_strike=30_000.0)
+        limits = RiskLimits(risk_budget=10_000.0, max_moneyness_pct=0.03)
+        result = check_candidate(far, limits, context=None)
+        assert rr.RISK_TOO_FAR_FROM_MONEY not in codes(result)
 
 
 class TestExpiryWindow:

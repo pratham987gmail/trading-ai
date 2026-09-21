@@ -62,6 +62,17 @@ class RiskLimits:
             ``UNDEFINED``.
         require_known_regime: Refuse when the volatility regime is ``UNKNOWN``.
         reject_opposed_trend: Refuse when the measured trend opposes the structure.
+        max_moneyness_pct: Largest fraction the long (bought) leg's strike may sit
+            from spot, e.g. ``0.03`` permits up to 3% out of the money. ``None``
+            (the default) applies no limit. Exists because the risk-budget gate
+            alone is not sufficient at a small account's capital: a structure can
+            be cheap enough to fit the budget purely by being so far out of the
+            money that it has almost no real probability of profit, which is a
+            different failure than "correctly sized". See
+            ``research/reports/chain_replay_NIFTY_findings.md`` for the recorded
+            evidence this gate exists to catch (a 0% win rate over 76 trades,
+            driven by strikes 4-5% out of the money surviving the budget gate
+            purely because a near-the-money spread did not fit it).
     """
 
     risk_budget: float
@@ -72,6 +83,7 @@ class RiskLimits:
     require_defined_trend: bool = True
     require_known_regime: bool = True
     reject_opposed_trend: bool = True
+    max_moneyness_pct: float | None = None
 
 
 @dataclass
@@ -214,6 +226,27 @@ def check_candidate(
         assessment.rejections.append(reject(rr.RISK_NET_DEBIT_NOT_POSITIVE, net_premium=net))
         # Without a positive debit nothing downstream is meaningful.
         return assessment
+
+    # -- Moneyness -------------------------------------------------------
+    # Evaluated before the budget gate, deliberately: a structure can be
+    # cheap enough to fit the budget purely by being so far out of the money
+    # that its real probability of profit is close to zero. That is a
+    # different failure than "correctly sized" and the budget gate alone
+    # cannot catch it — see RISK_TOO_FAR_FROM_MONEY's docstring reference.
+    spot = context.spot if context is not None else None
+    if limits.max_moneyness_pct is not None and spot:
+        strike = candidate.long_leg.strike
+        distance_pct = abs(strike - spot) / spot * 100.0
+        if distance_pct > limits.max_moneyness_pct * 100.0:
+            assessment.rejections.append(
+                reject(
+                    rr.RISK_TOO_FAR_FROM_MONEY,
+                    strike=strike,
+                    spot=round(spot, 2),
+                    distance_pct=round(distance_pct, 2),
+                    maximum=round(limits.max_moneyness_pct * 100.0, 2),
+                )
+            )
 
     # -- Expiry window -------------------------------------------------
     assessment.rejections.extend(check_expiry(candidate.days_to_expiry, limits))

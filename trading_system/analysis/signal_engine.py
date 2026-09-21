@@ -356,6 +356,7 @@ def limits_from_settings(
             min_days_to_expiry=settings.SIGNAL_MIN_DAYS_TO_EXPIRY,
             max_days_to_expiry=settings.SIGNAL_MAX_DAYS_TO_EXPIRY,
             max_cost_drag_pct=settings.SIGNAL_MAX_COST_DRAG_PCT,
+            max_moneyness_pct=settings.SIGNAL_MAX_MONEYNESS_PCT,
         ),
         LiquidityLimits(
             max_spread_pct=settings.SIGNAL_MAX_BID_ASK_SPREAD_PCT,
