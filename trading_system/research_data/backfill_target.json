@@ -1,0 +1,33 @@
+{
+  "underlyings": [
+    "NIFTY",
+    "BANKNIFTY",
+    "SENSEX"
+  ],
+  "min_trading_days": 250,
+  "min_distinct_expiries": 12,
+  "min_strikes_per_expiry": 21,
+  "bar_interval_minutes": 5,
+  "raw_row_target": 7087500,
+  "raw_trade_target": 3935,
+  "effective_sample_size_at_raw_target": 588,
+  "adjusted_expiry_target": 1319,
+  "estimated_storage_mb": 2365.71,
+  "reasoning_notes": [
+    "Raw statistical-power trade target (VERIFIED via live import, Phase 3.5): research.validation.dataset_requirement.compute_requirement().min_trades_for_statistical_power = 3,935.",
+    "Naive expiry target (face value, no clustering adjustment): ceil(raw_trade_target / assumed_trades_per_expiry) = ceil(3935 / 20) = 197 expiries.",
+    "Effective sample size AT the naive target (clustering-adjusted, design effect / Kish -- see research.validation.effective_sample_size): raw_n=3935, distinct_expiries=197, avg_trades_per_expiry=19.9746, intra_expiry_correlation=0.3 -> effective_n=588. This is well short of the 3,935-trade power target the naive plan was supposed to reach: the naive plan looks sufficient by raw trade count but is NOT sufficient once clustering is accounted for.",
+    "Algebraic solve for the ACTUAL expiry target: holding assumed_trades_per_expiry (m=20) fixed, effective_n(E) = E * m / DEFF is linear in E expiries, where DEFF = 1 + (m-1)*rho = 1 + (20-1)*0.3 = 6.7000. Solving effective_n(E) >= 3935 for E gives E >= raw_trade_target * DEFF / m = 3935 * 6.7000 / 20 = 1318.22 -> ceil -> 1319 expiries (equivalently: naive_expiry_target * DEFF = 197 * 6.7000 = 1319.90, consistent with the direct solve up to rounding).",
+    "Cross-check (not merely asserted): re-running estimate_effective_sample_size at 1319 expiries (26,380 raw trades at the same 20/expiry throughput) yields effective_n=3,937, which clears the 3,935-trade power target -- confirming the closed-form solve, not just trusting the algebra.",
+    "CORRECTED RECOMMENDATION: 1319 expiries are actually needed (not the naive 197) for the clustering-adjusted effective sample size to clear Phase 3.5's 3,935-trade statistical-power target -- a 6.70x correction, driven entirely by the design effect (6.7000) at the assumed 0.3 intra-expiry correlation.",
+    "This does NOT replace Phase 3.5's own min_distinct_expiries=12 floor (a REASONED figure meant for regime-diversity/calendar-coverage purposes, not statistical power) -- it is a separate, additional, more demanding figure for the specific goal of clearing the statistical-power target at EFFECTIVE, not raw, sample size.",
+    "Row-count and storage figures below are reused directly from research.validation.dataset_requirement.compute_requirement() (5-minute bars, 250 trading days, 21 strikes/expiry, NIFTY/BANKNIFTY/SENSEX) -- not recomputed here, since Section I's clustering adjustment changes the EXPIRY/trade target, not the bar-level row-count formula."
+  ],
+  "unverified_assumptions": [
+    "intra_expiry_correlation = 0.3: REASONED placeholder, not measured from real trade data (see effective_sample_size.DEFAULT_INTRA_EXPIRY_CORRELATION's docstring). This is the single most consequential unverified input in this module -- the entire naive-vs-adjusted gap is driven by it.",
+    "assumed_trades_per_expiry = 20: REASONED working assumption (see ASSUMED_TRADES_PER_EXPIRY's module docstring), not sourced from any existing project constant or measurement.",
+    "ASSUMED_DISTINCT_CONTRACTS_PER_EXPIRY = 6: REASONED (ATM/ATM+1/ATM-1 selection methods x CE/PE), used only for the reported distinct_contracts context field, not part of the clustering formula itself.",
+    "Expiry is used as the sole clustering unit (see effective_sample_size.py's module docstring for why); contract-level and regime-level clustering are real but not modeled here, so this module's effective-sample-size figures are themselves plausibly still optimistic, not a fully corrected number.",
+    "Inherits every unverified assumption of research.validation.dataset_requirement.compute_requirement() (sigma=30% of premium, AVG_LISTED_EXPIRIES_PER_DAY=3, STRIKES_PER_EXPIRY=21, ESTIMATED_BYTES_PER_ROW=350, ~1 trade/window in the walk-forward harness, and the expiry-cadence web-search finding) -- see that module's own unverified_assumptions for the full list."
+  ]
+}

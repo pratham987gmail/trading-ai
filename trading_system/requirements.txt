@@ -1,0 +1,85 @@
+# ===========================================================================
+#  PHASE 1 DEPENDENCIES
+#  Install:  pip install -r requirements.txt
+#  Python:   3.11 or 3.12  (3.13 not recommended: several wheels still lag)
+# ===========================================================================
+
+# --- Web framework -------------------------------------------------------
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# --- Angel One SmartAPI --------------------------------------------------
+# 1.5.3 is the current upstream release (SmartApi/version.py).
+# The SDK is synchronous and raises on HTTP/parse errors; core.angel_client
+# wraps every call and converts failures into None + a log line.
+# Transitive deps it needs but does not declare: logzero, six, websocket-client.
+smartapi-python==1.5.3
+logzero==1.7.0
+six==1.17.0
+pyotp==2.9.0
+websocket-client==1.8.0
+
+# --- Data ----------------------------------------------------------------
+pandas==2.2.3
+numpy==2.2.1
+
+# --- Research (Phase 2): ML model tournament ------------------------------
+# scikit-learn backs the two mandatory tournament entrants (Logistic
+# Regression, Random Forest) and is required, not optional, for
+# research/ml/models.py to import. xgboost and lightgbm are genuinely
+# optional: research.ml.models.available_models() skips either one cleanly
+# and logs why when its package is absent, per the Phase 2 spec's
+# requirement that deep/optional models never be mandatory. Install them
+# separately (`pip install xgboost lightgbm`) to include them in a
+# tournament run; nothing else in the codebase requires them.
+scikit-learn==1.9.1
+
+# --- Utilities -----------------------------------------------------------
+python-dotenv==1.0.1
+requests==2.32.3
+
+# --- Development / test --------------------------------------------------
+pytest==8.3.4
+pytest-asyncio==0.25.0
+httpx==0.28.1          # required by fastapi.testclient
+black==24.10.0
+ruff==0.8.4
+
+# --- Optional ------------------------------------------------------------
+# matplotlib is used only by backtest.reports.save_equity_curve_plot, which
+# degrades to skipping the chart when it is absent. Install it if you want
+# --plot to produce an image.
+#   matplotlib==3.10.0
+
+# ===========================================================================
+#  DELIBERATELY NOT DEPENDENCIES
+# ===========================================================================
+# No technical-analysis library is used. Phase 3 (analysis/) implements its
+# indicators directly, for two reasons:
+#
+#   pandas-ta==0.3.14b0   Imports `numpy.NaN`, which numpy removed in 2.0. It
+#                         cannot import against the numpy pinned above, and
+#                         adopting it would mean pinning numpy < 2.0 and
+#                         dragging pandas back with it. Upstream issue #857 is
+#                         still open.
+#
+#   TA-Lib==0.4.32        Requires the C library to be compiled and installed
+#                         before the wheel will build. A poor trade for
+#                         indicators that are twenty lines of pandas each.
+#
+# The deciding reason is architectural rather than either of those. Both
+# libraries are whole-frame and vectorised, but the backtest engine consults a
+# strategy once per bar, so a whole-frame indicator is recomputed from scratch
+# on every call. The MarketView accessors compute over a bounded trailing
+# window instead, which is what keeps a 9,500-bar run at seconds.
+#
+# Option chain storage uses the stdlib `sqlite3` module, so no SQLAlchemy or
+# aiosqlite dependency is needed for Phase 2.5 either.
+#
+# ===========================================================================
+#  LATER PHASES — intentionally not installed yet
+# ===========================================================================
+# Phase 5 (paper ledger)
+#   SQLAlchemy==2.0.36         # if the trade log outgrows stdlib sqlite3

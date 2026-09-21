@@ -1,0 +1,56 @@
+# Credentials — never commit real values. Only .env.example and
+# .env.render.example (templates with dummy values) are meant to be tracked.
+.env
+.env.local
+.env.render
+# Wildcard catch-all: covers .env.upstox_token (written by
+# research/cli/upstox_login.py, holds a live bearer token) and any future
+# .env.* scratch file, not just the three named above. The two *.example
+# templates are deliberately un-ignored again below.
+.env.*
+!.env.example
+!.env.render.example
+*.pem
+*.key
+
+# Logs — may contain diagnostic detail even with redaction in place, and the
+# third-party SDK writes its own dated log folders directly (logs/YYYY-MM-DD/)
+# outside this repository's own logging configuration.
+logs/
+logs/**/
+*.log
+
+# Local data — recorder databases, instrument master cache, and any other
+# generated/bulk dataset. These are large, regenerable, and never belong in
+# git history (data/option_chains.db alone is multiple gigabytes and grows
+# without bound).
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Paper trading state — operational, not source. Reconciliation history in
+# particular must never be rewritten by a force-push or a squashed commit.
+paper_trades.json
+paper_trades_reconciliation.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+*.egg
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Backtest / ad hoc output that is a run artifact, not source
+backtest_output.txt
+bt_check/

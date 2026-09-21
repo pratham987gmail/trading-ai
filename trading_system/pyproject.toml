@@ -1,0 +1,37 @@
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "C4", "SIM", "RET"]
+ignore = [
+    "E501",  # line length is enforced by black
+    "B008",  # FastAPI Depends() in defaults is idiomatic
+    "S104",  # bind address comes from validated config
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]  # assert is the point of a test
+# S106 flags `token="99926000"` as a hardcoded credential. These are public NSE
+# instrument tokens, not secrets: they identify an index and are published in the
+# instrument master. Scoped to this file so a genuine hardcoded secret elsewhere
+# is still caught.
+"config/instruments.py" = ["S106"]
+# B027 flags the empty lifecycle hooks on the Strategy ABC. They are deliberately
+# concrete no-ops: a strategy overrides on_fill/on_close only if it keeps its own
+# books, and making them abstract would force every strategy to implement four
+# methods it does not need.
+"backtest/strategy.py" = ["B027"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = ["ignore::DeprecationWarning"]
+log_cli_level = "WARNING"
+markers = ["slow: full synthetic validation scenarios, run via python -m research.cli.validate_pipeline or pytest -m slow"]
+addopts = "-m 'not slow'"

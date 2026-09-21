@@ -1,0 +1,46 @@
+services:
+  # Paper Trading Service
+  - type: worker
+    name: paper-trading-system
+    env: python
+    region: singapore  # Change to your preferred region: oregon, frankfurt, ohio, singapore
+    plan: free  # Free tier - upgrade to 'starter' for better reliability
+    buildCommand: pip install -r render_requirements.txt
+    startCommand: bash start_render.sh
+    envVars:
+      - key: ANGEL_API_KEY
+        sync: false  # Set manually in Render dashboard
+      - key: ANGEL_CLIENT_ID
+        sync: false  # Set manually in Render dashboard
+      - key: ANGEL_PASSWORD
+        sync: false  # Set manually in Render dashboard
+      - key: ANGEL_TOTP_SECRET
+        sync: false  # Set manually in Render dashboard
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: TZ
+        value: Asia/Kolkata
+    autoDeploy: true  # Auto-deploy on git push
+
+  # Data Collection Service
+  - type: worker
+    name: data-collection-system
+    env: python
+    region: singapore
+    plan: free  # Free tier - upgrade to 'starter' for better reliability
+    buildCommand: pip install -r render_requirements.txt
+    startCommand: bash start_data_collector.sh
+    envVars:
+      - key: ANGEL_API_KEY
+        sync: false  # Set manually in Render dashboard
+      - key: ANGEL_CLIENT_ID
+        sync: false  # Set manually in Render dashboard
+      - key: ANGEL_PASSWORD
+        sync: false  # Set manually in Render dashboard
+      - key: ANGEL_TOTP_SECRET
+        sync: false  # Set manually in Render dashboard
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: TZ
+        value: Asia/Kolkata
+    autoDeploy: true  # Auto-deploy on git push
