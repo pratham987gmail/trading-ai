@@ -205,9 +205,13 @@ class ChainStorage:
             else:
                 expiry_date = expiry
             
-            # Convert timestamp string to datetime
+            # Convert timestamp string to datetime. Most rows are
+            # "YYYY-MM-DD HH:MM:SS"; a minority (SQLite's own
+            # CURRENT_TIMESTAMP-style writes) carry fractional seconds
+            # ("...HH:MM:SS.ffffff"), which strptime's fixed format above
+            # rejects outright. fromisoformat handles both.
             if isinstance(timestamp, str):
-                timestamp_dt = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
+                timestamp_dt = datetime.fromisoformat(timestamp)
             else:
                 timestamp_dt = timestamp
             
