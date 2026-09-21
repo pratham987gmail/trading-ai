@@ -7,6 +7,12 @@
   "trades_closed": 85,
   "trades_open_at_end": 2,
   "win_rate_pct": 16.5,
+  "direction_correct_pct": 32.9,
+  "exit_reason_counts": {
+    "STOP": 67,
+    "TARGET": 8,
+    "TIME_DTE": 10
+  },
   "gross_profit": 18443.48,
   "gross_loss": 57721.39,
   "total_round_trip_costs": 8745.42,
@@ -29,7 +35,10 @@
       "exit_value_per_unit": 1.45,
       "round_trip_costs": 96.6,
       "net_pnl": -516.6,
-      "entry_score": 70.2
+      "entry_score": 70.2,
+      "entry_spot": 25966.75,
+      "exit_spot": 25847.1,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2024-10-04",
@@ -43,7 +52,10 @@
       "exit_value_per_unit": 59.41,
       "round_trip_costs": 127.14,
       "net_pnl": 3068.61,
-      "entry_score": 83.1
+      "entry_score": 83.1,
+      "entry_spot": 25290.6,
+      "exit_spot": 24867.2,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2024-10-11",
@@ -57,7 +69,10 @@
       "exit_value_per_unit": 4.4,
       "round_trip_costs": 99.39,
       "net_pnl": -763.14,
-      "entry_score": 70.4
+      "entry_score": 70.4,
+      "entry_spot": 24987.95,
+      "exit_spot": 25122.65,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2024-10-18",
@@ -71,7 +86,10 @@
       "exit_value_per_unit": 1.51,
       "round_trip_costs": 100.08,
       "net_pnl": -1078.08,
-      "entry_score": 83.4
+      "entry_score": 83.4,
+      "entry_spot": 24641.85,
+      "exit_spot": 24878.9,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2024-10-25",
@@ -85,7 +103,10 @@
       "exit_value_per_unit": 2.09,
       "round_trip_costs": 101.12,
       "net_pnl": -1380.62,
-      "entry_score": 76.8
+      "entry_score": 76.8,
+      "entry_spot": 24255.15,
+      "exit_spot": 24398.1,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2024-11-01",
@@ -99,7 +120,10 @@
       "exit_value_per_unit": 2.45,
       "round_trip_costs": 110.7,
       "net_pnl": -1381.95,
-      "entry_score": 72.0
+      "entry_score": 72.0,
+      "entry_spot": 24320.9,
+      "exit_spot": 24371.9,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2024-11-08",
@@ -113,7 +137,10 @@
       "exit_value_per_unit": 3.5,
       "round_trip_costs": 100.84,
       "net_pnl": -1143.34,
-      "entry_score": 89.9
+      "entry_score": 89.9,
+      "entry_spot": 24173.5,
+      "exit_spot": 24206.8,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2024-11-18",
@@ -127,7 +154,10 @@
       "exit_value_per_unit": 0.95,
       "round_trip_costs": 97.03,
       "net_pnl": -940.78,
-      "entry_score": 70.1
+      "entry_score": 70.1,
+      "entry_spot": 23415.6,
+      "exit_spot": 23692.2,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2024-11-22",
@@ -141,7 +171,10 @@
       "exit_value_per_unit": 1.71,
       "round_trip_costs": 103.98,
       "net_pnl": -1711.98,
-      "entry_score": 68.6
+      "entry_score": 68.6,
+      "entry_spot": 23494.75,
+      "exit_spot": 24298.95,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2024-11-29",
@@ -155,7 +188,10 @@
       "exit_value_per_unit": 10.95,
       "round_trip_costs": 105.23,
       "net_pnl": -941.48,
-      "entry_score": 82.6
+      "entry_score": 82.6,
+      "entry_spot": 24046.2,
+      "exit_spot": 24131.95,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2024-12-06",
@@ -169,7 +205,10 @@
       "exit_value_per_unit": 7.65,
       "round_trip_costs": 108.93,
       "net_pnl": -948.93,
-      "entry_score": 60.5
+      "entry_score": 60.5,
+      "entry_spot": 24694.7,
+      "exit_spot": 24622.2,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2024-12-13",
@@ -183,7 +222,10 @@
       "exit_value_per_unit": 3.45,
       "round_trip_costs": 100.08,
       "net_pnl": -1037.58,
-      "entry_score": 93.0
+      "entry_score": 93.0,
+      "entry_spot": 24377.65,
+      "exit_spot": 24729.6,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2024-12-27",
@@ -197,7 +239,10 @@
       "exit_value_per_unit": 2.46,
       "round_trip_costs": 97.6,
       "net_pnl": -1323.85,
-      "entry_score": 82.9
+      "entry_score": 82.9,
+      "entry_spot": 23913.85,
+      "exit_spot": 23752.6,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-01-03",
@@ -211,7 +256,10 @@
       "exit_value_per_unit": 9.2,
       "round_trip_costs": 101.47,
       "net_pnl": -828.97,
-      "entry_score": 85.7
+      "entry_score": 85.7,
+      "entry_spot": 24070.1,
+      "exit_spot": 24004.0,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-01-10",
@@ -225,7 +273,10 @@
       "exit_value_per_unit": 6.3,
       "round_trip_costs": 104.77,
       "net_pnl": -1368.52,
-      "entry_score": 68.5
+      "entry_score": 68.5,
+      "entry_spot": 23365.55,
+      "exit_spot": 23225.5,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-01-17",
@@ -239,7 +290,10 @@
       "exit_value_per_unit": 12.2,
       "round_trip_costs": 103.01,
       "net_pnl": -556.76,
-      "entry_score": 68.6
+      "entry_score": 68.6,
+      "entry_spot": 23226.05,
+      "exit_spot": 23097.4,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-01-24",
@@ -253,7 +307,10 @@
       "exit_value_per_unit": 19.85,
       "round_trip_costs": 110.45,
       "net_pnl": -177.95,
-      "entry_score": 70.6
+      "entry_score": 70.6,
+      "entry_spot": 23139.95,
+      "exit_spot": 23052.85,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-01-31",
@@ -267,7 +324,10 @@
       "exit_value_per_unit": 1.55,
       "round_trip_costs": 121.99,
       "net_pnl": -1081.99,
-      "entry_score": 69.2
+      "entry_score": 69.2,
+      "entry_spot": 23391.85,
+      "exit_spot": 23239.95,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-02-07",
@@ -281,7 +341,10 @@
       "exit_value_per_unit": 5.95,
       "round_trip_costs": 102.26,
       "net_pnl": -1242.26,
-      "entry_score": 86.8
+      "entry_score": 86.8,
+      "entry_spot": 23603.75,
+      "exit_spot": 23448.35,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-02-14",
@@ -295,7 +358,10 @@
       "exit_value_per_unit": 6.95,
       "round_trip_costs": 101.51,
       "net_pnl": -915.26,
-      "entry_score": 70.2
+      "entry_score": 70.2,
+      "entry_spot": 23055.35,
+      "exit_spot": 22988.4,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-02-21",
@@ -309,7 +375,10 @@
       "exit_value_per_unit": 2.8,
       "round_trip_costs": 99.55,
       "net_pnl": -1340.8,
-      "entry_score": 76.3
+      "entry_score": 76.3,
+      "entry_spot": 22805.05,
+      "exit_spot": 22583.05,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-02-28",
@@ -323,7 +392,10 @@
       "exit_value_per_unit": 3.5,
       "round_trip_costs": 97.36,
       "net_pnl": -649.36,
-      "entry_score": 92.6
+      "entry_score": 92.6,
+      "entry_spot": 22233.75,
+      "exit_spot": 22261.1,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-03-07",
@@ -337,7 +409,10 @@
       "exit_value_per_unit": 1.8,
       "round_trip_costs": 96.83,
       "net_pnl": -944.33,
-      "entry_score": 89.9
+      "entry_score": 89.9,
+      "entry_spot": 22551.15,
+      "exit_spot": 22400.3,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-03-17",
@@ -351,7 +426,10 @@
       "exit_value_per_unit": 21.61,
       "round_trip_costs": 98.67,
       "net_pnl": 1004.58,
-      "entry_score": 78.3
+      "entry_score": 78.3,
+      "entry_spot": 22539.45,
+      "exit_spot": 22709.25,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-03-21",
@@ -365,7 +443,10 @@
       "exit_value_per_unit": 44.3,
       "round_trip_costs": 107.39,
       "net_pnl": 2517.61,
-      "entry_score": 92.7
+      "entry_score": 92.7,
+      "entry_spot": 23259.8,
+      "exit_spot": 23535.05,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-03-28",
@@ -379,7 +460,10 @@
       "exit_value_per_unit": 27.9,
       "round_trip_costs": 105.87,
       "net_pnl": 1142.88,
-      "entry_score": 82.0
+      "entry_score": 82.0,
+      "entry_spot": 23552.15,
+      "exit_spot": 23226.4,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-04-03",
@@ -393,7 +477,10 @@
       "exit_value_per_unit": 3.7,
       "round_trip_costs": 99.88,
       "net_pnl": -1187.38,
-      "entry_score": 67.1
+      "entry_score": 67.1,
+      "entry_spot": 23233.85,
+      "exit_spot": 22977.25,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-04-11",
@@ -407,7 +494,10 @@
       "exit_value_per_unit": 58.55,
       "round_trip_costs": 133.36,
       "net_pnl": 2435.39,
-      "entry_score": 74.7
+      "entry_score": 74.7,
+      "entry_spot": 22835.85,
+      "exit_spot": 23360.35,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-04-21",
@@ -421,7 +511,10 @@
       "exit_value_per_unit": 16.65,
       "round_trip_costs": 101.77,
       "net_pnl": 51.98,
-      "entry_score": 75.4
+      "entry_score": 75.4,
+      "entry_spot": 24020.3,
+      "exit_spot": 24314.75,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-04-24",
@@ -435,7 +528,10 @@
       "exit_value_per_unit": 9.65,
       "round_trip_costs": 107.33,
       "net_pnl": -1172.33,
-      "entry_score": 83.7
+      "entry_score": 83.7,
+      "entry_spot": 24271.4,
+      "exit_spot": 24024.15,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-05-02",
@@ -449,7 +545,10 @@
       "exit_value_per_unit": 8.31,
       "round_trip_costs": 109.34,
       "net_pnl": -806.09,
-      "entry_score": 67.7
+      "entry_score": 67.7,
+      "entry_spot": 24577.7,
+      "exit_spot": 24387.0,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-05-09",
@@ -463,7 +562,10 @@
       "exit_value_per_unit": 1.75,
       "round_trip_costs": 125.22,
       "net_pnl": -1601.97,
-      "entry_score": 83.5
+      "entry_score": 83.5,
+      "entry_spot": 24005.8,
+      "exit_spot": 24713.15,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-05-16",
@@ -477,7 +579,10 @@
       "exit_value_per_unit": 8.61,
       "round_trip_costs": 103.52,
       "net_pnl": -1137.77,
-      "entry_score": 67.1
+      "entry_score": 67.1,
+      "entry_spot": 24999.7,
+      "exit_spot": 24892.25,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-05-23",
@@ -491,7 +596,10 @@
       "exit_value_per_unit": 9.65,
       "round_trip_costs": 106.5,
       "net_pnl": -1006.5,
-      "entry_score": 68.8
+      "entry_score": 68.8,
+      "entry_spot": 24786.55,
+      "exit_spot": 25061.45,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-05-30",
@@ -505,7 +613,10 @@
       "exit_value_per_unit": 9.0,
       "round_trip_costs": 107.53,
       "net_pnl": -1063.78,
-      "entry_score": 83.4
+      "entry_score": 83.4,
+      "entry_spot": 24804.6,
+      "exit_spot": 24602.1,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-06-06",
@@ -519,7 +630,10 @@
       "exit_value_per_unit": 59.5,
       "round_trip_costs": 117.81,
       "net_pnl": 2934.69,
-      "entry_score": 76.9
+      "entry_score": 76.9,
+      "entry_spot": 24712.15,
+      "exit_spot": 25096.05,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-06-13",
@@ -533,7 +647,10 @@
       "exit_value_per_unit": 8.15,
       "round_trip_costs": 108.19,
       "net_pnl": -1049.44,
-      "entry_score": 88.4
+      "entry_score": 88.4,
+      "entry_spot": 24633.35,
+      "exit_spot": 24736.8,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-06-20",
@@ -547,7 +664,10 @@
       "exit_value_per_unit": 46.25,
       "round_trip_costs": 107.52,
       "net_pnl": 2427.48,
-      "entry_score": 68.4
+      "entry_score": 68.4,
+      "entry_spot": 24865.2,
+      "exit_spot": 25202.7,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-06-27",
@@ -561,7 +681,10 @@
       "exit_value_per_unit": 5.3,
       "round_trip_costs": 97.89,
       "net_pnl": -712.89,
-      "entry_score": 90.9
+      "entry_score": 90.9,
+      "entry_spot": 25548.35,
+      "exit_spot": 25564.7,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-07-04",
@@ -575,7 +698,10 @@
       "exit_value_per_unit": 5.65,
       "round_trip_costs": 100.07,
       "net_pnl": -602.57,
-      "entry_score": 82.6
+      "entry_score": 82.6,
+      "entry_spot": 25421.65,
+      "exit_spot": 25467.8,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-07-11",
@@ -589,7 +715,10 @@
       "exit_value_per_unit": 2.7,
       "round_trip_costs": 96.97,
       "net_pnl": -408.22,
-      "entry_score": 83.6
+      "entry_score": 83.6,
+      "entry_spot": 25276.4,
+      "exit_spot": 25151.7,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-07-18",
@@ -603,7 +732,10 @@
       "exit_value_per_unit": 1.9,
       "round_trip_costs": 96.93,
       "net_pnl": -460.68,
-      "entry_score": 83.9
+      "entry_score": 83.9,
+      "entry_spot": 25033.1,
+      "exit_spot": 25096.0,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-07-25",
@@ -617,7 +749,10 @@
       "exit_value_per_unit": 2.65,
       "round_trip_costs": 97.18,
       "net_pnl": -472.18,
-      "entry_score": 77.4
+      "entry_score": 77.4,
+      "entry_spot": 24926.4,
+      "exit_spot": 24835.25,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-08-01",
@@ -631,7 +766,10 @@
       "exit_value_per_unit": 2.8,
       "round_trip_costs": 98.68,
       "net_pnl": -721.18,
-      "entry_score": 73.0
+      "entry_score": 73.0,
+      "entry_spot": 24691.6,
+      "exit_spot": 24627.2,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-08-08",
@@ -645,7 +783,10 @@
       "exit_value_per_unit": 1.35,
       "round_trip_costs": 98.2,
       "net_pnl": -701.95,
-      "entry_score": 77.9
+      "entry_score": 77.9,
+      "entry_spot": 24469.3,
+      "exit_spot": 24679.95,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-08-18",
@@ -659,7 +800,10 @@
       "exit_value_per_unit": 0.95,
       "round_trip_costs": 96.4,
       "net_pnl": -718.9,
-      "entry_score": 79.2
+      "entry_score": 79.2,
+      "entry_spot": 25007.7,
+      "exit_spot": 24911.05,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-08-22",
@@ -673,7 +817,10 @@
       "exit_value_per_unit": 13.35,
       "round_trip_costs": 98.96,
       "net_pnl": 328.54,
-      "entry_score": 85.7
+      "entry_score": 85.7,
+      "entry_spot": 24959.15,
+      "exit_spot": 24590.0,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-08-29",
@@ -687,7 +834,10 @@
       "exit_value_per_unit": 0.45,
       "round_trip_costs": 95.23,
       "net_pnl": -327.73,
-      "entry_score": 90.5
+      "entry_score": 90.5,
+      "entry_spot": 24486.3,
+      "exit_spot": 24546.45,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-09-03",
@@ -701,7 +851,10 @@
       "exit_value_per_unit": 1.3,
       "round_trip_costs": 96.85,
       "net_pnl": -408.1,
-      "entry_score": 87.8
+      "entry_score": 87.8,
+      "entry_spot": 24591.8,
+      "exit_spot": 24911.6,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-09-05",
@@ -715,7 +868,10 @@
       "exit_value_per_unit": 0.75,
       "round_trip_costs": 95.18,
       "net_pnl": -173.93,
-      "entry_score": 80.8
+      "entry_score": 80.8,
+      "entry_spot": 24789.4,
+      "exit_spot": 24817.7,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-09-10",
@@ -729,7 +885,10 @@
       "exit_value_per_unit": 2.95,
       "round_trip_costs": 96.56,
       "net_pnl": -362.81,
-      "entry_score": 92.7
+      "entry_score": 92.7,
+      "entry_spot": 25005.3,
+      "exit_spot": 24984.55,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-09-12",
@@ -743,7 +902,10 @@
       "exit_value_per_unit": 0.5,
       "round_trip_costs": 94.81,
       "net_pnl": -147.31,
-      "entry_score": 90.2
+      "entry_score": 90.2,
+      "entry_spot": 25062.85,
+      "exit_spot": 25090.75,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-09-17",
@@ -757,7 +919,10 @@
       "exit_value_per_unit": 1.4,
       "round_trip_costs": 95.52,
       "net_pnl": -384.27,
-      "entry_score": 84.4
+      "entry_score": 84.4,
+      "entry_spot": 25316.25,
+      "exit_spot": 25299.6,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-09-24",
@@ -771,7 +936,10 @@
       "exit_value_per_unit": 12.8,
       "round_trip_costs": 98.46,
       "net_pnl": 557.79,
-      "entry_score": 79.9
+      "entry_score": 79.9,
+      "entry_spot": 25092.4,
+      "exit_spot": 24803.95,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-10-01",
@@ -785,7 +953,10 @@
       "exit_value_per_unit": 5.95,
       "round_trip_costs": 96.87,
       "net_pnl": -149.37,
-      "entry_score": 67.2
+      "entry_score": 67.2,
+      "entry_spot": 24675.4,
+      "exit_spot": 24960.35,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-10-08",
@@ -799,7 +970,10 @@
       "exit_value_per_unit": 1.05,
       "round_trip_costs": 96.79,
       "net_pnl": -348.04,
-      "entry_score": 84.4
+      "entry_score": 84.4,
+      "entry_spot": 25162.15,
+      "exit_spot": 25268.1,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-10-14",
@@ -813,7 +987,10 @@
       "exit_value_per_unit": 1.2,
       "round_trip_costs": 98.75,
       "net_pnl": -736.25,
-      "entry_score": 73.0
+      "entry_score": 73.0,
+      "entry_spot": 25218.7,
+      "exit_spot": 25431.9,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-10-17",
@@ -827,7 +1004,10 @@
       "exit_value_per_unit": 4.0,
       "round_trip_costs": 95.34,
       "net_pnl": 122.16,
-      "entry_score": 91.1
+      "entry_score": 91.1,
+      "entry_spot": 25609.45,
+      "exit_spot": 25815.05,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-10-23",
@@ -841,7 +1021,10 @@
       "exit_value_per_unit": 2.3,
       "round_trip_costs": 96.64,
       "net_pnl": -351.64,
-      "entry_score": 84.5
+      "entry_score": 84.5,
+      "entry_spot": 25991.45,
+      "exit_spot": 25888.15,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-10-29",
@@ -855,7 +1038,10 @@
       "exit_value_per_unit": 4.25,
       "round_trip_costs": 97.89,
       "net_pnl": -469.14,
-      "entry_score": 67.1
+      "entry_score": 67.1,
+      "entry_spot": 25998.65,
+      "exit_spot": 25919.05,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-11-06",
@@ -869,7 +1055,10 @@
       "exit_value_per_unit": 18.4,
       "round_trip_costs": 100.27,
       "net_pnl": 885.98,
-      "entry_score": 89.7
+      "entry_score": 89.7,
+      "entry_spot": 25637.7,
+      "exit_spot": 25335.8,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-11-12",
@@ -883,7 +1072,10 @@
       "exit_value_per_unit": 2.0,
       "round_trip_costs": 96.65,
       "net_pnl": -647.9,
-      "entry_score": 77.3
+      "entry_score": 77.3,
+      "entry_spot": 25859.95,
+      "exit_spot": 25966.85,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2025-11-19",
@@ -897,7 +1089,10 @@
       "exit_value_per_unit": 0.25,
       "round_trip_costs": 96.87,
       "net_pnl": -670.62,
-      "entry_score": 71.5
+      "entry_score": 71.5,
+      "entry_spot": 25917.75,
+      "exit_spot": 25998.9,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-11-26",
@@ -911,7 +1106,10 @@
       "exit_value_per_unit": null,
       "round_trip_costs": 0.0,
       "net_pnl": null,
-      "entry_score": 72.5
+      "entry_score": 72.5,
+      "entry_spot": 25948.6,
+      "exit_spot": null,
+      "spot_moved_correctly": null
     },
     {
       "entry_date": "2025-12-04",
@@ -925,7 +1123,10 @@
       "exit_value_per_unit": 0.7,
       "round_trip_costs": 95.32,
       "net_pnl": -350.32,
-      "entry_score": 87.9
+      "entry_score": 87.9,
+      "entry_spot": 25992.1,
+      "exit_spot": 25989.95,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-12-10",
@@ -939,7 +1140,10 @@
       "exit_value_per_unit": 1.1,
       "round_trip_costs": 96.75,
       "net_pnl": -400.5,
-      "entry_score": 74.4
+      "entry_score": 74.4,
+      "entry_spot": 25884.5,
+      "exit_spot": 25998.9,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-12-17",
@@ -953,7 +1157,10 @@
       "exit_value_per_unit": 0.95,
       "round_trip_costs": 96.68,
       "net_pnl": -362.93,
-      "entry_score": 69.7
+      "entry_score": 69.7,
+      "entry_spot": 25865.6,
+      "exit_spot": 25961.3,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2025-12-31",
@@ -967,7 +1174,10 @@
       "exit_value_per_unit": null,
       "round_trip_costs": 0.0,
       "net_pnl": null,
-      "entry_score": 89.2
+      "entry_score": 89.2,
+      "entry_spot": 25979.3,
+      "exit_spot": null,
+      "spot_moved_correctly": null
     },
     {
       "entry_date": "2026-01-09",
@@ -981,7 +1191,10 @@
       "exit_value_per_unit": 16.4,
       "round_trip_costs": 98.91,
       "net_pnl": 962.34,
-      "entry_score": 85.0
+      "entry_score": 85.0,
+      "entry_spot": 25893.75,
+      "exit_spot": 25564.15,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2026-01-14",
@@ -995,7 +1208,10 @@
       "exit_value_per_unit": 3.55,
       "round_trip_costs": 97.26,
       "net_pnl": -536.01,
-      "entry_score": 68.6
+      "entry_score": 68.6,
+      "entry_spot": 25727.85,
+      "exit_spot": 25740.5,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2026-01-21",
@@ -1009,7 +1225,10 @@
       "exit_value_per_unit": 3.6,
       "round_trip_costs": 102.23,
       "net_pnl": -627.23,
-      "entry_score": 87.4
+      "entry_score": 87.4,
+      "entry_spot": 25151.55,
+      "exit_spot": 25404.05,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2026-01-23",
@@ -1023,7 +1242,10 @@
       "exit_value_per_unit": 0.25,
       "round_trip_costs": 95.26,
       "net_pnl": -432.76,
-      "entry_score": 75.4
+      "entry_score": 75.4,
+      "entry_spot": 25292.7,
+      "exit_spot": 25139.8,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2026-01-28",
@@ -1037,7 +1259,10 @@
       "exit_value_per_unit": 0.6,
       "round_trip_costs": 106.48,
       "net_pnl": -1913.98,
-      "entry_score": 68.8
+      "entry_score": 68.8,
+      "entry_spot": 25304.45,
+      "exit_spot": 24852.55,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2026-02-04",
@@ -1051,7 +1276,10 @@
       "exit_value_per_unit": 6.85,
       "round_trip_costs": 102.57,
       "net_pnl": -920.07,
-      "entry_score": 63.3
+      "entry_score": 63.3,
+      "entry_spot": 25778.5,
+      "exit_spot": 25634.15,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2026-02-06",
@@ -1065,7 +1293,10 @@
       "exit_value_per_unit": 0.9,
       "round_trip_costs": 96.95,
       "net_pnl": -355.7,
-      "entry_score": 79.4
+      "entry_score": 79.4,
+      "entry_spot": 25550.45,
+      "exit_spot": 25823.6,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2026-02-11",
@@ -1079,7 +1310,10 @@
       "exit_value_per_unit": 3.25,
       "round_trip_costs": 97.64,
       "net_pnl": -408.89,
-      "entry_score": 87.8
+      "entry_score": 87.8,
+      "entry_spot": 25929.65,
+      "exit_spot": 25867.5,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2026-02-13",
@@ -1093,7 +1327,10 @@
       "exit_value_per_unit": 2.65,
       "round_trip_costs": 97.62,
       "net_pnl": -191.37,
-      "entry_score": 90.5
+      "entry_score": 90.5,
+      "entry_spot": 25536.6,
+      "exit_spot": 25499.85,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2026-02-18",
@@ -1107,7 +1344,10 @@
       "exit_value_per_unit": 3.75,
       "round_trip_costs": 101.63,
       "net_pnl": -514.13,
-      "entry_score": 69.3
+      "entry_score": 69.3,
+      "entry_spot": 25656.85,
+      "exit_spot": 25773.4,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2026-02-20",
@@ -1121,7 +1361,10 @@
       "exit_value_per_unit": 2.55,
       "round_trip_costs": 100.11,
       "net_pnl": -625.11,
-      "entry_score": 83.7
+      "entry_score": 83.7,
+      "entry_spot": 25511.05,
+      "exit_spot": 25722.65,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2026-02-24",
@@ -1135,7 +1378,10 @@
       "exit_value_per_unit": 6.8,
       "round_trip_costs": 105.72,
       "net_pnl": -1136.97,
-      "entry_score": 73.2
+      "entry_score": 73.2,
+      "entry_spot": 25516.9,
+      "exit_spot": 25605.65,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2026-02-26",
@@ -1149,7 +1395,10 @@
       "exit_value_per_unit": 1.65,
       "round_trip_costs": 97.05,
       "net_pnl": -543.3,
-      "entry_score": 82.7
+      "entry_score": 82.7,
+      "entry_spot": 25522.45,
+      "exit_spot": 25331.4,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2026-03-04",
@@ -1163,7 +1412,10 @@
       "exit_value_per_unit": 8.25,
       "round_trip_costs": 138.21,
       "net_pnl": -1019.46,
-      "entry_score": 81.6
+      "entry_score": 81.6,
+      "entry_spot": 24315.45,
+      "exit_spot": 24635.25,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2026-03-06",
@@ -1177,7 +1429,10 @@
       "exit_value_per_unit": 1.75,
       "round_trip_costs": 101.11,
       "net_pnl": -1829.86,
-      "entry_score": 78.4
+      "entry_score": 78.4,
+      "entry_spot": 24631.95,
+      "exit_spot": 23769.0,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2026-03-11",
@@ -1191,7 +1446,10 @@
       "exit_value_per_unit": 7.1,
       "round_trip_costs": 115.97,
       "net_pnl": -1334.72,
-      "entry_score": 68.2
+      "entry_score": 68.2,
+      "entry_spot": 24146.0,
+      "exit_spot": 23676.75,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2026-03-13",
@@ -1205,7 +1463,10 @@
       "exit_value_per_unit": 20.4,
       "round_trip_costs": 127.79,
       "net_pnl": 3.46,
-      "entry_score": 74.6
+      "entry_score": 74.6,
+      "entry_spot": 23335.05,
+      "exit_spot": 23187.95,
+      "spot_moved_correctly": true
     },
     {
       "entry_date": "2026-03-18",
@@ -1219,7 +1480,10 @@
       "exit_value_per_unit": 5.15,
       "round_trip_costs": 107.21,
       "net_pnl": -1430.96,
-      "entry_score": 82.6
+      "entry_score": 82.6,
+      "entry_spot": 23686.7,
+      "exit_spot": 23231.15,
+      "spot_moved_correctly": false
     },
     {
       "entry_date": "2026-03-20",
@@ -1233,7 +1497,10 @@
       "exit_value_per_unit": 1.7,
       "round_trip_costs": 109.14,
       "net_pnl": -1511.64,
-      "entry_score": 62.5
+      "entry_score": 62.5,
+      "entry_spot": 23246.45,
+      "exit_spot": 22587.75,
+      "spot_moved_correctly": false
     }
   ],
   "max_moneyness_pct": 0.02

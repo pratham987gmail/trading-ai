@@ -163,12 +163,29 @@ class ReplayTrade:
     net_debit_per_unit: float
     max_loss_after_costs: float
     entry_score: float | None
+    entry_spot: float | None = None
     exit_date: date | None = None
+    exit_spot: float | None = None
     exit_reason: str | None = None
     exit_value_per_unit: float | None = None
     round_trip_costs: float | None = None
     net_pnl: float | None = None
     legs: list[dict[str, Any]] = field(default_factory=list)
+
+    @property
+    def spot_moved_correctly(self) -> bool | None:
+        """True when spot moved the direction this trade needed, regardless
+        of whether costs/theta still turned the trade into a loss. ``None``
+        when spot at entry or exit is unknown.
+        """
+        if self.entry_spot is None or self.exit_spot is None:
+            return None
+        change = self.exit_spot - self.entry_spot
+        if self.direction == "BULLISH":
+            return change > 0
+        if self.direction == "BEARISH":
+            return change < 0
+        return None
 
 
 def _lot_size(underlying: str) -> int:
@@ -386,6 +403,7 @@ def run_replay(
     start: date | None = None,
     end: date | None = None,
     max_moneyness_pct: float | None = None,
+    stop_fraction_of_debit: float = STOP_FRACTION_OF_DEBIT,
 ) -> dict[str, Any]:
     """Run the day-by-day replay and return trades plus summary metrics.
 
@@ -398,6 +416,11 @@ def run_replay(
             (``analysis/risk_filters.py``) — this replay exercises the
             production code path, not a stand-in for it. ``None`` (the
             default) reproduces exactly what the shipped engine would
+        stop_fraction_of_debit: Override for ``STOP_FRACTION_OF_DEBIT``,
+            exposed as a parameter (rather than only the module constant)
+            specifically so this can be swept experimentally — see the
+            "stop too tight" finding in
+            ``research/reports/chain_replay_NIFTY_findings.md``.
             select today, with no moneyness constraint.
     """
     project_root = Path(__file__).resolve().parent.parent.parent
@@ -457,13 +480,14 @@ def run_replay(
                         if quote:
                             leg["_exit_price"] = quote["ltp"]
                     open_trade.exit_value_per_unit = exit_value
+                    open_trade.exit_spot = chain_dict["spot"]
 
             exit_reason = None
             if exit_value is not None:
                 pnl_gross = (exit_value - open_trade.net_debit_per_unit) * open_trade.quantity
                 if pnl_gross >= TARGET_R_MULTIPLE * open_trade.max_loss_after_costs:
                     exit_reason = "TARGET"
-                elif pnl_gross <= -STOP_FRACTION_OF_DEBIT * (
+                elif pnl_gross <= -stop_fraction_of_debit * (
                     open_trade.net_debit_per_unit * open_trade.quantity
                 ):
                     exit_reason = "STOP"
@@ -540,6 +564,7 @@ def run_replay(
             net_debit_per_unit=net_debit_per_unit,
             max_loss_after_costs=float(top.max_loss_after_costs or 0.0),
             entry_score=top.score,
+            entry_spot=chain_dict["spot"],
         )
         open_legs = legs
 
@@ -576,6 +601,17 @@ def _summarise(
             max_dd = dd
             max_dd_pct = (dd / peak * 100.0) if peak else 0.0
 
+    # Direction correctness, independent of P&L: did spot actually move the
+    # way the trade needed, regardless of whether theta/costs still made it
+    # a loss? Answers "is the direction call itself broken" separately from
+    # "did the structure/costs eat a correct call".
+    directional = [t for t in closed if t.spot_moved_correctly is not None]
+    correct_direction = [t for t in directional if t.spot_moved_correctly]
+    exit_reason_counts: dict[str, int] = {}
+    for t in closed:
+        if t.exit_reason:
+            exit_reason_counts[t.exit_reason] = exit_reason_counts.get(t.exit_reason, 0) + 1
+
     return {
         "underlying": underlying,
         "capital": capital,
@@ -585,6 +621,10 @@ def _summarise(
         "trades_closed": len(closed),
         "trades_open_at_end": len(trades) - len(closed),
         "win_rate_pct": round(100.0 * len(wins) / len(closed), 1) if closed else None,
+        "direction_correct_pct": (
+            round(100.0 * len(correct_direction) / len(directional), 1) if directional else None
+        ),
+        "exit_reason_counts": exit_reason_counts,
         "gross_profit": round(gross_profit, 2),
         "gross_loss": round(gross_loss, 2),
         "total_round_trip_costs": round(total_costs, 2),
@@ -612,6 +652,9 @@ def _summarise(
                 "round_trip_costs": round(t.round_trip_costs, 2) if t.round_trip_costs is not None else None,
                 "net_pnl": round(t.net_pnl, 2) if t.net_pnl is not None else None,
                 "entry_score": t.entry_score,
+                "entry_spot": round(t.entry_spot, 2) if t.entry_spot is not None else None,
+                "exit_spot": round(t.exit_spot, 2) if t.exit_spot is not None else None,
+                "spot_moved_correctly": t.spot_moved_correctly,
             }
             for t in trades
         ],
