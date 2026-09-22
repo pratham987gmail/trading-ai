@@ -68,18 +68,41 @@ live order placement, at any point in its pipeline.**
    Open `.env.upstox_token`, copy the `UPSTOX_ACCESS_TOKEN=...` line into
    `.env`, then delete the scratch file.
 
-### Critical: tokens expire daily
+### Two ways to get `UPSTOX_ACCESS_TOKEN` -- prefer the Analytics Token
 
-Unlike Angel One's TOTP-based session (regenerable programmatically from a
-stored secret), **Upstox access tokens are JWTs that expire around 3:30am
-IST every day**, with no silent refresh on the standard OAuth flow. There is
-no way to automate this away -- `core.upstox_auth` deliberately does not
-attempt one, because there is no headless path through Upstox's browser
-login dialog. Re-run `python -m research.cli.upstox_login` once each
-trading day before doing anything that needs a live Upstox call
-(`upstox_discover` with `--expiry`, `upstox_download`). Commands that only
-read the already-ingested local store (`upstox_validate`, `upstox_coverage`,
-`upstox_status`) do not need a fresh token.
+**Option A: the standard OAuth code flow above.** These tokens are JWTs
+that expire around 3:30am IST **every day**, with no silent refresh on the
+standard flow. There is no way to automate this away -- `core.upstox_auth`
+deliberately does not attempt one, because there is no headless path
+through Upstox's browser login dialog. Re-run
+`python -m research.cli.upstox_login` once each trading day before doing
+anything that needs a live Upstox call (`upstox_discover` with `--expiry`,
+`upstox_download`). Commands that only read the already-ingested local
+store (`upstox_validate`, `upstox_coverage`, `upstox_status`) do not need a
+fresh token.
+
+**Option B: the Analytics Token (recommended for this integration).**
+Upstox's developer portal, under **My Apps -> Analytics Token**, issues a
+separate, long-lived (confirmed: ~1 year, e.g. issued 19-Sep-2026 valid to
+23-Sep-2027) read-only token scoped to Market Data and Real-time/Streaming
+APIs (Portfolio and Account & Funds too, read-only, if a static IP is
+registered). **It does not grant order placement, modification, or
+cancellation at all** -- which is not a limitation for this codebase, since
+nothing here ever places a Upstox order in the first place (see this
+guide's opening paragraph). It is a strictly better fit than the daily
+OAuth token for every use this integration actually has: same bearer-token
+mechanism (`core.upstox_client` sends whatever is in
+`UPSTOX_ACCESS_TOKEN` as `Authorization: Bearer <token>`, with no
+code-level distinction between the two token types), confirmed working
+end-to-end against a live `get_historical_candles_v3` call.
+
+Only one Analytics Token is allowed per user (visible under **My Apps ->
+Static IPs -> Apps**, next to a **Revoke** button — revoking invalidates it
+immediately). Copy it from the portal and paste it directly into
+`UPSTOX_ACCESS_TOKEN` in `.env`; there is no code exchange step for this
+one, unlike the OAuth flow's authorization code. When it does eventually
+expire (or is revoked), the fix is the same: get a new value from the
+portal and replace `UPSTOX_ACCESS_TOKEN`, no code change needed.
 
 ## Subscription requirements (unverified -- read this before assuming access)
 
