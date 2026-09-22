@@ -50,6 +50,16 @@ def main(argv: list[str] | None = None) -> int:
         help="YYYY-MM-DD. When given, discover expired option contracts for this expiry.",
     )
     parser.add_argument(
+        "--exchange",
+        default="NSE",
+        choices=("NSE", "BSE", "COMPLETE"),
+        help=(
+            "Which Upstox instrument master to resolve the underlying's index key from "
+            "(default: NSE). SENSEX lives in the BSE master, not NSE -- pass --exchange BSE "
+            "for it, or COMPLETE to search both. NIFTY/BANKNIFTY need the NSE default."
+        ),
+    )
+    parser.add_argument(
         "--dry-run", action="store_true", help="Print what would be queried, without any network call."
     )
     args = parser.parse_args(argv)
@@ -103,7 +113,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        master_path = download_instrument_master()
+        master_path = download_instrument_master(args.exchange)
         frame = load_instrument_master(master_path)
     except InstrumentMasterError as exc:
         print(json.dumps({"status": "ERROR", "reason": f"Instrument master unavailable: {exc}"}, indent=2))

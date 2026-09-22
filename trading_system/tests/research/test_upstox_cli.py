@@ -223,7 +223,7 @@ class TestUpstoxDiscover:
 
     def test_underlying_only_needs_no_credentials(self, monkeypatch, tmp_path, capsys):
         monkeypatch.setattr(upstox_discover, "Settings", lambda: make_settings(tmp_path))
-        monkeypatch.setattr(upstox_discover, "download_instrument_master", lambda: tmp_path / "NSE.json.gz")
+        monkeypatch.setattr(upstox_discover, "download_instrument_master", lambda exchange: tmp_path / "NSE.json.gz")
         monkeypatch.setattr(upstox_discover, "load_instrument_master", lambda path: _synthetic_master_frame())
 
         rc = upstox_discover.main(["--underlying", "NIFTY"])
@@ -248,7 +248,7 @@ class TestUpstoxDiscover:
     def test_expiry_query_with_credentials_reports_contract_breakdown(self, monkeypatch, tmp_path, capsys):
         settings = configured_settings(tmp_path)
         monkeypatch.setattr(upstox_discover, "Settings", lambda: settings)
-        monkeypatch.setattr(upstox_discover, "download_instrument_master", lambda: tmp_path / "NSE.json.gz")
+        monkeypatch.setattr(upstox_discover, "download_instrument_master", lambda exchange: tmp_path / "NSE.json.gz")
         monkeypatch.setattr(upstox_discover, "load_instrument_master", lambda path: _synthetic_master_frame())
 
         class FakeClient:
