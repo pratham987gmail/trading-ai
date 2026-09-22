@@ -14,7 +14,7 @@ a day, not a background service.
 Example:
     >>> from core.upstox_auth import build_authorization_url
     >>> build_authorization_url("my-client-id", "https://localhost/callback")
-    'https://api.upstox.com/login/authorization/dialog?client_id=my-client-id&redirect_uri=https%3A%2F%2Flocalhost%2Fcallback&response_type=code'
+    'https://api.upstox.com/v2/login/authorization/dialog?client_id=my-client-id&redirect_uri=https%3A%2F%2Flocalhost%2Fcallback&response_type=code'
 """
 
 from __future__ import annotations
@@ -26,8 +26,8 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-AUTHORIZATION_DIALOG_URL = "https://api.upstox.com/login/authorization/dialog"
-TOKEN_URL = "https://api.upstox.com/login/authorization/token"
+AUTHORIZATION_DIALOG_URL = "https://api.upstox.com/v2/login/authorization/dialog"
+TOKEN_URL = "https://api.upstox.com/v2/login/authorization/token"
 
 
 class UpstoxAuthError(Exception):

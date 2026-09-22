@@ -38,7 +38,7 @@ class TestBuildAuthorizationUrl:
         parsed = urlparse(url)
         assert parsed.scheme == "https"
         assert parsed.netloc == "api.upstox.com"
-        assert parsed.path == "/login/authorization/dialog"
+        assert parsed.path == "/v2/login/authorization/dialog"
 
         query = parse_qs(parsed.query)
         assert query["client_id"] == ["my-client-id"]
