@@ -1,0 +1,143 @@
+{
+  "underlying": "NIFTY",
+  "data_source": "NSE participant-wise OI (nsearchives.nseindia.com)",
+  "fii_dii_days_fetched": 357,
+  "spot_days_available": 357,
+  "label_horizon_days": 5,
+  "flat_threshold_pct": 0.5,
+  "total_usable_trading_days": 351,
+  "label_distribution": {
+    "DOWN": 148,
+    "UP": 115,
+    "FLAT": 88
+  },
+  "n_folds_requested": 8,
+  "n_folds_evaluated": 7,
+  "n_folds_passing_gate": 1,
+  "fold_pass_fraction": 0.143,
+  "n_folds_beating_baseline": 5,
+  "fold_beats_baseline_fraction": 0.714,
+  "accuracy_gate": 0.55,
+  "fold_pass_fraction_required": 0.7,
+  "min_folds_required": 6,
+  "verdict": "NO_PREDICTIVE_VALUE_FOUND",
+  "features_ranked_by_importance": [
+    [
+      "dii_index_fut_net",
+      0.2575
+    ],
+    [
+      "fii_call_minus_put_long",
+      0.1859
+    ],
+    [
+      "fii_index_fut_net",
+      0.152
+    ],
+    [
+      "client_index_fut_net",
+      0.1481
+    ],
+    [
+      "fii_index_fut_net_change_1d",
+      0.1328
+    ],
+    [
+      "client_index_fut_net_change_1d",
+      0.1235
+    ]
+  ],
+  "folds": [
+    {
+      "fold": 1,
+      "train_days": 73,
+      "test_days": 39,
+      "majority_baseline_acc": 0.4359,
+      "model_accuracy": {
+        "LogisticRegression": 0.4359,
+        "RandomForest": 0.4359
+      },
+      "best_model_acc": 0.4359,
+      "beats_gate": false,
+      "beats_baseline": true
+    },
+    {
+      "fold": 2,
+      "train_days": 112,
+      "test_days": 39,
+      "majority_baseline_acc": 0.2564,
+      "model_accuracy": {
+        "LogisticRegression": 0.4103,
+        "RandomForest": 0.4359
+      },
+      "best_model_acc": 0.4359,
+      "beats_gate": false,
+      "beats_baseline": true
+    },
+    {
+      "fold": 3,
+      "train_days": 151,
+      "test_days": 39,
+      "majority_baseline_acc": 0.359,
+      "model_accuracy": {
+        "LogisticRegression": 0.4872,
+        "RandomForest": 0.3846
+      },
+      "best_model_acc": 0.4872,
+      "beats_gate": false,
+      "beats_baseline": true
+    },
+    {
+      "fold": 4,
+      "train_days": 190,
+      "test_days": 39,
+      "majority_baseline_acc": 0.5128,
+      "model_accuracy": {
+        "LogisticRegression": 0.2821,
+        "RandomForest": 0.4359
+      },
+      "best_model_acc": 0.4359,
+      "beats_gate": false,
+      "beats_baseline": false
+    },
+    {
+      "fold": 5,
+      "train_days": 229,
+      "test_days": 39,
+      "majority_baseline_acc": 0.2821,
+      "model_accuracy": {
+        "LogisticRegression": 0.4615,
+        "RandomForest": 0.5897
+      },
+      "best_model_acc": 0.5897,
+      "beats_gate": true,
+      "beats_baseline": true
+    },
+    {
+      "fold": 6,
+      "train_days": 268,
+      "test_days": 39,
+      "majority_baseline_acc": 0.3077,
+      "model_accuracy": {
+        "LogisticRegression": 0.359,
+        "RandomForest": 0.2308
+      },
+      "best_model_acc": 0.359,
+      "beats_gate": false,
+      "beats_baseline": true
+    },
+    {
+      "fold": 7,
+      "train_days": 307,
+      "test_days": 39,
+      "majority_baseline_acc": 0.6154,
+      "model_accuracy": {
+        "LogisticRegression": 0.2051,
+        "RandomForest": 0.2308
+      },
+      "best_model_acc": 0.2308,
+      "beats_gate": false,
+      "beats_baseline": false
+    }
+  ]
+}
