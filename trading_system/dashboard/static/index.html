@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NIFTY / SENSEX Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --panel: #131a22;
+    --panel-border: #223040;
+    --text: #e6edf3;
+    --text-dim: #8b98a5;
+    --accent: #4f9cff;
+    --green: #26a65b;
+    --red: #e5484d;
+    --amber: #d4a72c;
+    --itm: #16202b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--panel-border);
+    flex-wrap: wrap;
+  }
+  header h1 { font-size: 18px; margin: 0; margin-right: auto; font-weight: 600; }
+  select, input[type="range"] {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  .tabs { display: flex; gap: 4px; padding: 0 20px; border-bottom: 1px solid var(--panel-border); }
+  .tab {
+    padding: 10px 16px;
+    cursor: pointer;
+    color: var(--text-dim);
+    border-bottom: 2px solid transparent;
+    user-select: none;
+  }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  main { padding: 20px; max-width: 1200px; margin: 0 auto; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .card h2 { margin: 0 0 12px; font-size: 14px; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  #price-chart { height: 420px; }
+  .chain-controls { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  .chain-controls label { color: var(--text-dim); font-size: 12px; }
+  .chain-meta { display: flex; gap: 24px; margin-bottom: 12px; flex-wrap: wrap; }
+  .stat { display: flex; flex-direction: column; }
+  .stat .value { font-size: 20px; font-weight: 600; }
+  .stat .label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; }
+  #chain-slider { flex: 1; min-width: 200px; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--panel-border); white-space: nowrap; }
+  th { color: var(--text-dim); font-weight: 600; font-size: 11px; text-transform: uppercase; position: sticky; top: 0; background: var(--panel); }
+  td.strike { text-align: center; font-weight: 600; }
+  tr.atm td.strike { color: var(--amber); }
+  tr.itm-ce td:nth-child(-n+5) { background: var(--itm); }
+  tr.itm-pe td:nth-child(n+7) { background: var(--itm); }
+  .table-wrap { max-height: 560px; overflow-y: auto; border-radius: 8px; }
+  .empty { color: var(--text-dim); padding: 24px; text-align: center; }
+  .verdict { display: inline-block; padding: 3px 10px; border-radius: 5px; font-weight: 600; font-size: 12px; }
+  .verdict.PASS { background: rgba(38,166,91,0.2); color: var(--green); }
+  .verdict.FAIL { background: rgba(229,72,77,0.2); color: var(--red); }
+  .verdict.INSUFFICIENT { background: rgba(212,167,44,0.2); color: var(--amber); }
+  .report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-top: 12px; }
+
+  .banner {
+    background: rgba(212,167,44,0.12);
+    border: 1px solid rgba(212,167,44,0.35);
+    color: var(--amber);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12.5px;
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
+  .action-badge { display: inline-block; padding: 6px 14px; border-radius: 6px; font-weight: 700; font-size: 15px; letter-spacing: 0.02em; }
+  .action-badge.NOTRADE { background: rgba(139,152,165,0.18); color: var(--text-dim); }
+  .action-badge.WATCHLISTONLY { background: rgba(79,156,255,0.18); color: var(--accent); }
+  .action-badge.WAITFORVALIDATION { background: rgba(212,167,44,0.18); color: var(--amber); }
+  .last-updated { color: var(--text-dim); font-size: 11px; }
+  .expiry-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--panel-border); font-size: 12.5px; }
+  .expiry-row .exp-action { color: var(--text-dim); }
+  .candidate-card { border: 1px solid var(--panel-border); border-radius: 8px; padding: 12px; margin-top: 10px; }
+  .candidate-card .legs { font-family: ui-monospace, monospace; font-size: 12.5px; color: var(--text-dim); margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>NIFTY / SENSEX Dashboard</h1>
+  <select id="underlying-select"></select>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-panel="panel-price">Price Chart</div>
+  <div class="tab" data-panel="panel-chain">Option Chain</div>
+  <div class="tab" data-panel="panel-recommendation">Today's Screen</div>
+  <div class="tab" data-panel="panel-report">Credit-Spread Report</div>
+</div>
+
+<main>
+  <div id="panel-price" class="panel active">
+    <div class="card">
+      <h2 id="price-title">Daily candles</h2>
+      <div id="price-chart"></div>
+    </div>
+  </div>
+
+  <div id="panel-chain" class="panel">
+    <div class="card">
+      <div class="chain-controls">
+        <label>Expiry <select id="expiry-select"></select></label>
+        <label>Day <select id="day-select"></select></label>
+        <span>Time</span>
+        <input type="range" id="chain-slider" min="0" max="0" value="0" />
+        <span id="chain-time-label" style="color: var(--text-dim); font-size: 12px;"></span>
+      </div>
+      <div class="chain-meta">
+        <div class="stat"><span class="value" id="stat-spot">-</span><span class="label">Spot</span></div>
+        <div class="stat"><span class="value" id="stat-atm">-</span><span class="label">ATM strike</span></div>
+        <div class="stat"><span class="value" id="stat-completeness">-</span><span class="label">Completeness</span></div>
+      </div>
+      <div class="table-wrap">
+        <table id="chain-table">
+          <thead>
+            <tr>
+              <th>OI</th><th>Vol</th><th>Bid</th><th>Ask</th><th>LTP</th>
+              <th class="strike">Strike</th>
+              <th>LTP</th><th>Bid</th><th>Ask</th><th>Vol</th><th>OI</th>
+            </tr>
+          </thead>
+          <tbody id="chain-body"></tbody>
+        </table>
+      </div>
+      <div id="chain-empty" class="empty" style="display:none">No recorded chain for this underlying yet.</div>
+    </div>
+  </div>
+
+  <div id="panel-recommendation" class="panel">
+    <div class="banner">
+      <strong>Not trading advice.</strong> This re-scores today's real recorded chain
+      through the project's own cost, liquidity, and risk gates &mdash; the same gates
+      used everywhere else in this project. It does not predict direction: every
+      predictive-value study run in this project (technicals, options-flow, max-pain,
+      FII/DII, breakout, sentiment) found no edge. <code>validation_status</code> below
+      is literally <code>NOT_BACKTESTED_YET</code>. Treat this as a screen to look at,
+      never an instruction to act on.
+    </div>
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+        <h2 style="margin:0;">Best candidate across recorded expiries</h2>
+        <span class="last-updated" id="rec-updated"></span>
+      </div>
+      <div id="rec-body"><div class="empty">Loading...</div></div>
+    </div>
+    <div class="card">
+      <h2>Every expiry evaluated</h2>
+      <div id="rec-expiry-list"></div>
+    </div>
+  </div>
+
+  <div id="panel-report" class="panel">
+    <div class="card" id="report-card">
+      <h2>Weekly credit-spread replay (30-45 DTE)</h2>
+      <div id="report-body"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+const state = { underlying: null, expiry: null, day: null, timestamps: [] };
+
+async function api(path, params) {
+  const url = new URL(path, window.location.origin);
+  Object.entries(params || {}).forEach(([k, v]) => v != null && url.searchParams.set(k, v));
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${path}: ${res.status}`);
+  return res.json();
+}
+
+function fmt(n, d = 2) { return n == null ? "-" : Number(n).toLocaleString("en-IN", { maximumFractionDigits: d }); }
+
+// ---- tabs ----
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    tab.classList.add("active");
+    document.getElementById(tab.dataset.panel).classList.add("active");
+    if (tab.dataset.panel === "panel-price") loadPriceChart();
+    if (tab.dataset.panel === "panel-recommendation") loadRecommendation();
+    if (tab.dataset.panel === "panel-report") loadReport();
+  });
+});
+
+// ---- underlying selector ----
+async function initUnderlyings() {
+  const { underlyings } = await api("/api/underlyings");
+  const sel = document.getElementById("underlying-select");
+  sel.innerHTML = underlyings.map(u => `<option value="${u}">${u}</option>`).join("");
+  const preferred = underlyings.includes("NIFTY") ? "NIFTY" : underlyings[0];
+  sel.value = preferred;
+  state.underlying = preferred;
+  sel.addEventListener("change", () => { state.underlying = sel.value; onUnderlyingChanged(); });
+  onUnderlyingChanged();
+}
+
+function onUnderlyingChanged() {
+  const active = document.querySelector(".tab.active")?.dataset.panel;
+  loadPriceChart();
+  loadExpiries();
+  if (active === "panel-recommendation") loadRecommendation();
+}
+
+// ---- price chart ----
+let chart, series;
+async function loadPriceChart() {
+  document.getElementById("price-title").textContent = `${state.underlying} daily candles`;
+  const { candles } = await api("/api/candles", { underlying: state.underlying, days: 400 });
+  const el = document.getElementById("price-chart");
+  if (!chart) {
+    chart = LightweightCharts.createChart(el, {
+      layout: { background: { color: "#131a22" }, textColor: "#e6edf3" },
+      grid: { vertLines: { color: "#223040" }, horzLines: { color: "#223040" } },
+      timeScale: { borderColor: "#223040" },
+      rightPriceScale: { borderColor: "#223040" },
+      width: el.clientWidth,
+      height: 420,
+    });
+    series = chart.addCandlestickSeries({ upColor: "#26a65b", downColor: "#e5484d", borderVisible: false, wickUpColor: "#26a65b", wickDownColor: "#e5484d" });
+    window.addEventListener("resize", () => chart.applyOptions({ width: el.clientWidth }));
+  }
+  if (candles.length === 0) { series.setData([]); return; }
+  series.setData(candles.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })));
+  chart.timeScale().fitContent();
+}
+
+// ---- option chain ----
+async function loadExpiries() {
+  const { expiries } = await api("/api/expiries", { underlying: state.underlying });
+  const sel = document.getElementById("expiry-select");
+  if (expiries.length === 0) {
+    sel.innerHTML = "";
+    document.getElementById("chain-empty").style.display = "block";
+    document.getElementById("chain-body").innerHTML = "";
+    return;
+  }
+  document.getElementById("chain-empty").style.display = "none";
+  sel.innerHTML = expiries.map(e =>
+    `<option value="${e.expiry}">${e.expiry} (${e.cycles} cycles, ${Math.round(e.mean_completeness * 100)}% complete)</option>`
+  ).join("");
+  sel.value = expiries[expiries.length - 1].expiry;
+  state.expiry = sel.value;
+  sel.onchange = () => { state.expiry = sel.value; loadDays(); };
+  loadDays();
+}
+
+async function loadDays() {
+  const { by_day } = await api("/api/chain/timestamps", { underlying: state.underlying, expiry: state.expiry });
+  const days = Object.keys(by_day).sort();
+  const sel = document.getElementById("day-select");
+  sel.innerHTML = days.map(d => `<option value="${d}">${d}</option>`).join("");
+  sel.value = days[days.length - 1];
+  state.day = sel.value;
+  state.timestamps = by_day[state.day] || [];
+  sel.onchange = () => { state.day = sel.value; state.timestamps = by_day[state.day] || []; setupSlider(); };
+  setupSlider();
+}
+
+function setupSlider() {
+  const slider = document.getElementById("chain-slider");
+  slider.max = Math.max(0, state.timestamps.length - 1);
+  slider.value = slider.max;
+  slider.oninput = () => renderChainAt(state.timestamps[slider.value]);
+  renderChainAt(state.timestamps[slider.value]);
+}
+
+async function renderChainAt(timestamp) {
+  if (!timestamp) return;
+  document.getElementById("chain-time-label").textContent = new Date(timestamp).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  const data = await api("/api/chain", { underlying: state.underlying, expiry: state.expiry, at: timestamp });
+  document.getElementById("stat-spot").textContent = fmt(data.spot);
+  document.getElementById("stat-atm").textContent = fmt(data.atm_strike, 0);
+  document.getElementById("stat-completeness").textContent = data.completeness != null ? `${Math.round(data.completeness * 100)}%` : "-";
+
+  const body = document.getElementById("chain-body");
+  body.innerHTML = data.legs.map(leg => {
+    const isAtm = leg.strike === data.atm_strike;
+    const ce = leg.CE || {}, pe = leg.PE || {};
+    const itmCe = data.spot != null && leg.strike < data.spot;
+    const itmPe = data.spot != null && leg.strike > data.spot;
+    return `<tr class="${isAtm ? "atm" : ""} ${itmCe ? "itm-ce" : ""} ${itmPe ? "itm-pe" : ""}">
+      <td>${fmt(ce.oi, 0)}</td><td>${fmt(ce.volume, 0)}</td><td>${fmt(ce.bid)}</td><td>${fmt(ce.ask)}</td><td>${fmt(ce.ltp)}</td>
+      <td class="strike">${fmt(leg.strike, 0)}</td>
+      <td>${fmt(pe.ltp)}</td><td>${fmt(pe.bid)}</td><td>${fmt(pe.ask)}</td><td>${fmt(pe.volume, 0)}</td><td>${fmt(pe.oi, 0)}</td>
+    </tr>`;
+  }).join("");
+}
+
+// ---- today's screen (recommendation) ----
+function actionClass(action) { return (action || "").replace(/\s+/g, ""); }
+
+function renderCandidate(c) {
+  const legLine = (leg, label) => leg && leg.strike ? `${label} ${leg.role} ${leg.type} ${fmt(leg.strike, 0)} @ ${fmt(leg.price ?? leg.ltp)}` : null;
+  const legs = [legLine(c.buy_leg, "BUY"), legLine(c.sell_leg, "SELL")].filter(Boolean).join("  /  ");
+  return `
+    <div class="candidate-card">
+      <div style="display:flex; justify-content:space-between;">
+        <strong>${c.strategy} (${c.direction})</strong>
+        <span>Score ${fmt(c.score, 0)} &middot; ${c.quality}</span>
+      </div>
+      <div class="legs">${legs}</div>
+      <div class="report-grid" style="margin-top:10px;">
+        <div class="stat"><span class="value">${c.max_loss != null ? "Rs " + fmt(c.max_loss) : "-"}</span><span class="label">Max loss</span></div>
+        <div class="stat"><span class="value">${c.max_profit != null ? "Rs " + fmt(c.max_profit) : "Unbounded"}</span><span class="label">Max profit</span></div>
+        <div class="stat"><span class="value">${c.risk_reward != null ? fmt(c.risk_reward) : "-"}</span><span class="label">Risk:Reward</span></div>
+        <div class="stat"><span class="value">${c.days_to_expiry != null ? fmt(c.days_to_expiry, 1) : "-"}</span><span class="label">Days to expiry</span></div>
+        <div class="stat"><span class="value">${c.cost_drag_pct != null ? fmt(c.cost_drag_pct, 1) + "%" : "-"}</span><span class="label">Cost drag</span></div>
+      </div>
+    </div>`;
+}
+
+async function loadRecommendation() {
+  const body = document.getElementById("rec-body");
+  const listEl = document.getElementById("rec-expiry-list");
+  body.innerHTML = `<div class="empty">Loading...</div>`;
+  let data;
+  try {
+    data = await api("/api/recommendation", { underlying: state.underlying });
+  } catch (e) {
+    body.innerHTML = `<div class="empty">Could not load: ${e}</div>`;
+    return;
+  }
+  if (!data.available) {
+    body.innerHTML = `<div class="empty">${data.error || "Not available"}</div>`;
+    listEl.innerHTML = "";
+    return;
+  }
+  const best = data.best;
+  document.getElementById("rec-updated").textContent = `Snapshot: ${new Date(best.captured_at).toLocaleString("en-IN")}`;
+  const cls = actionClass(best.best_action);
+  body.innerHTML = `
+    <div style="margin-bottom: 10px;">
+      <span class="action-badge ${cls}">${best.best_action}</span>
+      <span style="margin-left:10px; color: var(--text-dim); font-size: 12px;">${best.expiry} &middot; ${best.candidates_considered} structures evaluated</span>
+    </div>
+    <div style="margin-bottom: 12px;">${best.reason}</div>
+    ${best.candidates.map(renderCandidate).join("") || ""}
+    <div style="margin-top: 14px; color: var(--text-dim); font-size: 11.5px;">
+      Risk budget Rs ${fmt(best.risk_context.risk_budget)} of Rs ${fmt(best.risk_context.capital)} capital &middot;
+      validation status: <code>${best.validation_status}</code>
+    </div>`;
+
+  listEl.innerHTML = data.all.map(r => `
+    <div class="expiry-row">
+      <span>${r.expiry}</span>
+      <span class="exp-action">${r.best_action} &middot; ${r.candidates.length} accepted / ${r.candidates_considered} considered</span>
+    </div>`).join("");
+}
+
+// ---- credit-spread report ----
+async function loadReport() {
+  const body = document.getElementById("report-body");
+  const data = await api("/api/credit-spread-report");
+  if (!data.available) {
+    body.innerHTML = `<div class="empty">No report yet. It runs every Saturday at 10:00 IST.</div>`;
+    return;
+  }
+  body.innerHTML = data.results.map(r => {
+    const o = r.overall || {};
+    const verdictClass = r.verdict.startsWith("PASS") ? "PASS" : r.verdict.startsWith("FAIL") ? "FAIL" : "INSUFFICIENT";
+    return `
+      <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--panel-border);">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom: 8px;">
+          <strong>Width ${r.width_steps} strike step(s)</strong>
+          <span class="verdict ${verdictClass}">${r.verdict}</span>
+        </div>
+        <div class="report-grid">
+          <div class="stat"><span class="value">${o.closed_trades ?? 0}</span><span class="label">Closed trades</span></div>
+          <div class="stat"><span class="value">${o.win_rate_pct != null ? o.win_rate_pct + "%" : "-"}</span><span class="label">Win rate</span></div>
+          <div class="stat"><span class="value">${o.net_pnl != null ? "Rs " + fmt(o.net_pnl) : "-"}</span><span class="label">Net P&amp;L</span></div>
+          <div class="stat"><span class="value">${o.profit_factor ?? "-"}</span><span class="label">Profit factor</span></div>
+          <div class="stat"><span class="value">${o.expectancy_per_trade != null ? "Rs " + fmt(o.expectancy_per_trade) : "-"}</span><span class="label">Expectancy/trade</span></div>
+        </div>
+      </div>`;
+  }).join("") + `<div style="color: var(--text-dim); font-size: 12px;">Generated ${data.results[0]?.generated_at ?? ""}</div>`;
+}
+
+initUnderlyings();
+
+// Refresh whatever's on screen every 60s: new candle, latest chain instant,
+// today's screen. If the user has scrubbed the time slider to an earlier
+// instant, that choice is left alone -- only the *available* range grows.
+setInterval(async () => {
+  const active = document.querySelector(".tab.active")?.dataset.panel;
+  if (active === "panel-price") { loadPriceChart(); return; }
+  if (active === "panel-recommendation") { loadRecommendation(); return; }
+  if (active === "panel-report") { loadReport(); return; }
+  if (active === "panel-chain" && state.expiry) {
+    const wasAtEnd = document.getElementById("chain-slider").value == document.getElementById("chain-slider").max;
+    await loadDays();
+    if (wasAtEnd) {
+      const slider = document.getElementById("chain-slider");
+      slider.value = slider.max;
+      renderChainAt(state.timestamps[slider.value]);
+    }
+  }
+}, 60000);
+</script>
+</body>
+</html>
