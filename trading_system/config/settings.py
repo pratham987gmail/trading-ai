@@ -236,6 +236,9 @@ class Settings(BaseSettings):
     UPSTOX_ACCESS_TOKEN: SecretStr = Field(default=SecretStr(""))
     UPSTOX_REDIRECT_URI: str = Field(default="")  # not secret, just a URL
 
+    # -- NewsAPI credentials (headline research only, never live trading) --
+    NEWSAPI_KEY: SecretStr = Field(default=SecretStr(""))
+
     # ------------------------------------------------------------------
     # Validators
     # ------------------------------------------------------------------
@@ -522,6 +525,13 @@ class Settings(BaseSettings):
                 self.UPSTOX_ACCESS_TOKEN.get_secret_value().strip(),
             )
         )
+
+    @property
+    def newsapi_credentials_configured(self) -> bool:
+        """True when ``NEWSAPI_KEY`` is set. NewsAPI is a headline research
+        source only, never wired into live trading.
+        """
+        return bool(self.NEWSAPI_KEY.get_secret_value().strip())
 
     @property
     def cors_origin_list(self) -> list[str]:

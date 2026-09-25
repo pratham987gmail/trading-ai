@@ -63,22 +63,38 @@ LOOKBACK_DAYS_PER_CONTRACT = 40  # covers the full pre-expiry lifetime, incl. 30
 DEFAULT_STRIKE_RANGE = 5
 
 
-def _nifty_real_expiries(db_path: str, count: int) -> list[date]:
+def _nifty_real_expiries(db_path: str, count: int) -> list[date] | None:
+    """Real NIFTY expiry dates from this project's own recorded chain
+    history (``data/option_chains.db``), when that database is present.
+
+    That database is tens of GB and deliberately never copied to the cloud
+    VM (only ``options.db`` and ``historical_bars.db`` are), so this
+    returns ``None`` -- not an empty list, which would look like "zero
+    expiries found" rather than "this source isn't available here" -- when
+    the file or its table is missing, so the caller can fall back to
+    ``_probe_expiries`` instead of hard-failing.
+    """
+    if not Path(db_path).exists():
+        return None
     con = sqlite3.connect(db_path)
     try:
         rows = con.execute(
             "SELECT DISTINCT expiry FROM recorded_chains WHERE symbol = 'NIFTY' ORDER BY expiry DESC LIMIT ?",
             (count,),
         ).fetchall()
+    except sqlite3.OperationalError:
+        return None
     finally:
         con.close()
     return [date.fromisoformat(r[0]) for r in rows]
 
 
-def _probe_sensex_expiries(client: UpstoxClient, underlying_key: str, count: int) -> list[date]:
-    """Find real SENSEX expiry dates by probing candidate weekdays week by
-    week backward from today, since the weekly expiry weekday has changed
-    more than once in this project's window.
+def _probe_expiries(client: UpstoxClient, underlying_key: str, count: int) -> list[date]:
+    """Find real expiry dates by probing candidate weekdays week by week
+    backward from today. Originally written for SENSEX, whose weekly expiry
+    weekday has changed more than once in this project's window; also used
+    as NIFTY's fallback when ``data/option_chains.db`` isn't available
+    (e.g. on the cloud recorder, which never receives that legacy dataset).
     """
     found: list[date] = []
     cursor = date.today()
@@ -131,10 +147,9 @@ def backfill_underlying(
     if underlying_key is None:
         return {"underlying": underlying, "error": f"could not resolve instrument key"}
 
-    if underlying == "NIFTY":
-        expiries = _nifty_real_expiries(db_path, count)
-    else:
-        expiries = _probe_sensex_expiries(client, underlying_key, count)
+    expiries = _nifty_real_expiries(db_path, count) if underlying == "NIFTY" else None
+    if expiries is None:
+        expiries = _probe_expiries(client, underlying_key, count)
 
     summary = {
         "underlying": underlying,

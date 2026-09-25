@@ -54,3 +54,6 @@ Thumbs.db
 # Backtest / ad hoc output that is a run artifact, not source
 backtest_output.txt
 bt_check/
+
+# Generated report with personal name/capital details — keep local only
+PROJECT_REPORT.docx

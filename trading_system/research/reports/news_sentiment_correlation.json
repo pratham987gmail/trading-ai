@@ -1,0 +1,190 @@
+{
+  "window": "2026-08-27 to 2026-09-23",
+  "days_with_sentiment_data": 27,
+  "total_days_queried": 28,
+  "total_articles_scored": 2308,
+  "correlations_by_horizon": {
+    "1d": {
+      "n": 18,
+      "pearson_r": 0.523,
+      "p_value": 0.026,
+      "directional_hit_rate_pct": 44.4
+    },
+    "2d": {
+      "n": 17,
+      "pearson_r": 0.465,
+      "p_value": 0.06,
+      "directional_hit_rate_pct": 23.5
+    },
+    "3d": {
+      "n": 16,
+      "pearson_r": 0.106,
+      "p_value": 0.696,
+      "directional_hit_rate_pct": 25.0
+    }
+  },
+  "daily_detail": [
+    {
+      "date": "2026-08-27",
+      "article_count": 100.0,
+      "scored_count": 100.0,
+      "mean_sentiment": 0.3602669999999999,
+      "fwd_return_1d_pct": 0.3520008633983563,
+      "fwd_return_2d_pct": -0.04337746488810934,
+      "fwd_return_3d_pct": -0.14549092290226073
+    },
+    {
+      "date": "2026-08-28",
+      "article_count": 84.0,
+      "scored_count": 84.0,
+      "mean_sentiment": 0.4184773809523809,
+      "fwd_return_1d_pct": -0.3939914748931259,
+      "fwd_return_2d_pct": -0.49574675344821,
+      "fwd_return_3d_pct": -1.0804259657961657
+    },
+    {
+      "date": "2026-08-31",
+      "article_count": 100.0,
+      "scored_count": 100.0,
+      "mean_sentiment": 0.383754,
+      "fwd_return_1d_pct": -0.10215777146559933,
+      "fwd_return_2d_pct": -0.6891496818989749,
+      "fwd_return_3d_pct": -0.8594126343416253
+    },
+    {
+      "date": "2026-09-01",
+      "article_count": 100.0,
+      "scored_count": 100.0,
+      "mean_sentiment": 0.194734,
+      "fwd_return_1d_pct": -0.5875921815113135,
+      "fwd_return_2d_pct": -0.758029248663518,
+      "fwd_return_3d_pct": -0.6572219589454458
+    },
+    {
+      "date": "2026-09-02",
+      "article_count": 100.0,
+      "scored_count": 100.0,
+      "mean_sentiment": 0.4453019999999999,
+      "fwd_return_1d_pct": -0.17144446140304292,
+      "fwd_return_2d_pct": -0.07004133484148706,
+      "fwd_return_3d_pct": -0.5657667226300387
+    },
+    {
+      "date": "2026-09-03",
+      "article_count": 100.0,
+      "scored_count": 100.0,
+      "mean_sentiment": 0.449706,
+      "fwd_return_1d_pct": 0.10157727517388564,
+      "fwd_return_2d_pct": -0.39499946593391094,
+      "fwd_return_3d_pct": -0.998389424234881
+    },
+    {
+      "date": "2026-09-04",
+      "article_count": 100.0,
+      "scored_count": 100.0,
+      "mean_sentiment": 0.41851900000000003,
+      "fwd_return_1d_pct": -0.4960728438301564,
+      "fwd_return_2d_pct": -1.0988505169953686,
+      "fwd_return_3d_pct": -1.9508153504312162
+    },
+    {
+      "date": "2026-09-07",
+      "article_count": 100.0,
+      "scored_count": 100.0,
+      "mean_sentiment": 0.23531599999999997,
+      "fwd_return_1d_pct": -0.605782797114291,
+      "fwd_return_2d_pct": -1.4619950671071147,
+      "fwd_return_3d_pct": -1.267286677614642
+    },
+    {
+      "date": "2026-09-08",
+      "article_count": 100.0,
+      "scored_count": 100.0,
+      "mean_sentiment": 0.23315399999999997,
+      "fwd_return_1d_pct": -0.861430668793441,
+      "fwd_return_2d_pct": -0.6655355805560345,
+      "fwd_return_3d_pct": -1.0027459160316647
+    },
+    {
+      "date": "2026-09-09",
+      "article_count": 100.0,
+      "scored_count": 100.0,
+      "mean_sentiment": 0.3283789999999999,
+      "fwd_return_1d_pct": 0.1975972515630637,
+      "fwd_return_2d_pct": -0.14254315771504794,
+      "fwd_return_3d_pct": -1.3353818577555916
+    },
+    {
+      "date": "2026-09-10",
+      "article_count": 100.0,
+      "scored_count": 100.0,
+      "mean_sentiment": 0.22977599999999995,
+      "fwd_return_1d_pct": -0.33946962662600727,
+      "fwd_return_2d_pct": -1.529955958394742,
+      "fwd_return_3d_pct": -1.1082810144051007
+    },
+    {
+      "date": "2026-09-11",
+      "article_count": 95.0,
+      "scored_count": 95.0,
+      "mean_sentiment": 0.2517768421052632,
+      "fwd_return_1d_pct": -1.1945414371252367,
+      "fwd_return_2d_pct": -0.7714301588590526,
+      "fwd_return_3d_pct": -0.5449160401912976
+    },
+    {
+      "date": "2026-09-15",
+      "article_count": 100.0,
+      "scored_count": 100.0,
+      "mean_sentiment": 0.347238,
+      "fwd_return_1d_pct": 0.42822662271936884,
+      "fwd_return_2d_pct": 0.6574792591246875,
+      "fwd_return_3d_pct": 0.9853537843987219
+    },
+    {
+      "date": "2026-09-16",
+      "article_count": 100.0,
+      "scored_count": 100.0,
+      "mean_sentiment": 0.385729,
+      "fwd_return_1d_pct": 0.22827510164702638,
+      "fwd_return_2d_pct": 0.5547515677761824,
+      "fwd_return_3d_pct": 0.8472021225277407
+    },
+    {
+      "date": "2026-09-17",
+      "article_count": 100.0,
+      "scored_count": 100.0,
+      "mean_sentiment": 0.33873800000000004,
+      "fwd_return_1d_pct": 0.3257328990228138,
+      "fwd_return_2d_pct": 0.6175173824482426,
+      "fwd_return_3d_pct": 0.2509604393526659
+    },
+    {
+      "date": "2026-09-18",
+      "article_count": 98.0,
+      "scored_count": 98.0,
+      "mean_sentiment": 0.37557448979591834,
+      "fwd_return_1d_pct": 0.29083713120651494,
+      "fwd_return_2d_pct": -0.0745296919439462,
+      "fwd_return_3d_pct": 0.43004488914778216
+    },
+    {
+      "date": "2026-09-21",
+      "article_count": 100.0,
+      "scored_count": 100.0,
+      "mean_sentiment": 0.401006,
+      "fwd_return_1d_pct": -0.36430728230183806,
+      "fwd_return_2d_pct": 0.1388040641829993,
+      "fwd_return_3d_pct": null
+    },
+    {
+      "date": "2026-09-22",
+      "article_count": 89.0,
+      "scored_count": 89.0,
+      "mean_sentiment": 0.4011022471910112,
+      "fwd_return_1d_pct": 0.5049509194564674,
+      "fwd_return_2d_pct": null,
+      "fwd_return_3d_pct": null
+    }
+  ]
+}

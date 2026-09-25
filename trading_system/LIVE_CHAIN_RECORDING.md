@@ -1,11 +1,12 @@
-# Live option chain recording (SENSEX)
+# Live option chain recording (SENSEX + NIFTY)
 
-A Windows Scheduled Task, not a long-running background process, records
-SENSEX option chains during market hours. This note exists so a future
-session (or you, months from now) can find it, check on it, or rebuild it
-if the machine changes.
+Windows Scheduled Tasks, not long-running background processes, record
+SENSEX and NIFTY option chains during market hours, and a third task
+re-runs the credit-spread replay weekly. This note exists so a future
+session (or you, months from now) can find them, check on them, or rebuild
+them if the machine changes.
 
-## Why a scheduled task, not a background process
+## Why scheduled tasks, not a background process
 
 The first attempt used a plain background process
 (`scripts/record_chains.py`, long-running, its own internal 300s sleep
@@ -13,100 +14,109 @@ loop). It died silently when the session/machine environment reset,
 taking hours of otherwise-unrecoverable market data with it (chain
 snapshots cannot be reconstructed after the fact once an expiry passes).
 
-The task now uses `--once` instead: each invocation captures exactly one
-cycle and exits immediately — there is no long-lived process to die. The
-Windows Scheduler itself provides the recurring trigger, independent of
-any interactive session, login state, or this Claude Code session staying
-open.
+The tasks use `--once` instead: each invocation captures exactly one cycle
+and exits. The Windows Scheduler provides the recurring trigger.
 
 ## What's registered
 
-- **Task name:** `SensexChainRecorder` (Task Scheduler, "Ready" state,
-  visible in `taskschd.msc` or via `Get-ScheduledTask -TaskName
-  SensexChainRecorder` in PowerShell).
-- **Command:** `.venv\Scripts\python.exe scripts\record_chains.py
-  --symbols SENSEX --exchange BFO --expiries 7 --once`, working directory
-  `trading_system\`.
-- **Trigger:** weekdays (Mon-Fri), every 5 minutes from 09:00 to 16:00
-  IST. Outside market hours the script checks the session state, logs a
-  one-line reason, and exits — no capture, no error, negligible cost
-  (a single Angel One login handshake).
-- **`--expiries 7`**: tracks the 7 nearest SENSEX expiries, reaching out
-  to the 30-45 day range (confirmed against the real expiry list on
-  2026-09-22: 22OCT/29OCT/05NOV2026 land at 31/38/45 days). The default of
-  3 would only ever reach ~17 days — see
-  `research/reports/chain_replay_NIFTY_iron_condor_findings.md` for why
-  that mattered: the equivalent NIFTY condor test could only use 7-10 DTE
-  because the legacy recorder never captured anything past 10 days.
-- Writes to `data/options.db` via `core.option_store.OptionChainStore` —
-  the current recorder schema (distinct from the legacy
-  `recorder.storage.ChainStorage` / `data/option_chains.db` NIFTY dataset
-  `chain_replay.py` reads).
+| Task | Command (from `trading_system\`) | Trigger |
+|---|---|---|
+| `SensexChainRecorder` | `scripts\record_chains.py --symbols SENSEX --exchange BFO --expiries 7 --strike-count 45 --once` | Mon-Fri, every 5 min, 09:15-15:30 IST |
+| `NiftyChainRecorder` | `scripts\record_chains.py --symbols NIFTY --exchange NFO --expiries 7 --strike-count 35 --once` | Mon-Fri, every 5 min, 09:17-15:30 IST |
+| `CreditSpreadWeeklyReport` | `-m research.backtest.credit_spread_live_study` | Saturday 10:00 |
+
+All three have `WakeToRun` on, run on battery, and `StartWhenAvailable`
+(a missed run fires once the machine is back). Wake-to-run also needs
+"Allow wake timers" enabled in the Windows power plan, which is a system
+setting left to the machine owner.
+
+- **Two recorder tasks, offset 2 minutes.** `RecorderConfig.exchange` is a
+  single value per invocation, so NFO (NIFTY) and BFO (SENSEX) can't share
+  one process. The offset keeps both from hitting Angel One's quote rate
+  limit at the same instant.
+- **Market hours are enforced twice.** The trigger window is the session
+  itself, and the script checks `core.market_hours.is_market_open()` and
+  records nothing outside 09:15-15:30 (holidays included).
+- **`--expiries 7`** reaches the 30-45 DTE range the credit-spread test
+  needs. The legacy recorder never captured anything past ~10 DTE.
+- **`--strike-count`** was widened on 2026-09-25 from the default 20 (which
+  covered only about +-2.7% on SENSEX and +-4.4% on NIFTY) to 45 / 35
+  (+-6.1% / +-7.6%). A 30-45 DTE credit spread sells about 1 standard
+  deviation out, roughly 4-5%, which the old range often didn't reach.
+  A SENSEX cycle takes about 34 seconds at this width.
+- Writes to `data/options.db` via `core.option_store.OptionChainStore`,
+  which has real bid/ask. This is not the legacy `data/option_chains.db`
+  NIFTY dataset that `chain_replay.py` reads.
+
+## Liquidity finding that shapes what this data can test
+
+Measured on 2026-09-25 (share of recorded legs with both a bid and an ask):
+
+- **NIFTY:** 99-100% on the 30-45 DTE expiries except 03NOV (60%).
+- **SENSEX:** only the monthly expiry is quoted that far out (29OCT at 34
+  DTE: 95%). The far weeklies are empty: 22OCT 15%, 05NOV 0%, 12NOV 0%.
+
+So SENSEX offers about one 30-45 DTE credit-spread entry per month per
+side, while NIFTY offers roughly one per week. The credit-spread sample
+will come mostly from NIFTY.
+
+## Weekly report
+
+`research/reports/credit_spread_live/latest.md` (plus a dated `.md` and
+`.json` per run). The verdict reads `INSUFFICIENT_SAMPLE (n/30)` until 30
+trades have closed; after that it's `PASS` (positive expectancy and
+profit factor >= 1.3 after costs) or `FAIL`. See the module docstring in
+`research/backtest/credit_spread_live_study.py` for the exact rules.
 
 ## A real gotcha hit while setting this up
 
 `New-ScheduledTaskSettingsSet`'s default is
-`DisallowStartIfOnBatteries = $true`. On a laptop running on battery, this
-silently skips every recurrence after the first — no error, just a rising
-`NumberOfMissedRuns` count on `Get-ScheduledTaskInfo`. **This was disabled
-on the registered task** (`DisallowStartIfOnBatteries` and
-`StopIfGoingOnBatteries` both set to `$false`), confirmed by watching a
-real recurrence fire unattended at its scheduled minute. If this task
-stops accumulating data again, check `NumberOfMissedRuns` and these two
-settings first, before assuming the script itself is broken.
+`DisallowStartIfOnBatteries = $true`. On a laptop on battery this silently
+skips every recurrence after the first. The only symptom is a rising
+`NumberOfMissedRuns`. It's disabled on all three tasks. If data stops
+accumulating, check that first.
 
 ## Checking on it
 
 ```powershell
-Get-ScheduledTaskInfo -TaskName "SensexChainRecorder" | Format-List LastRunTime, LastTaskResult, NextRunTime, NumberOfMissedRuns
+foreach ($n in "SensexChainRecorder","NiftyChainRecorder","CreditSpreadWeeklyReport") {
+  Get-ScheduledTaskInfo -TaskName $n | Select-Object TaskName, LastRunTime, LastTaskResult, NextRunTime, NumberOfMissedRuns
+}
 ```
 
-`LastTaskResult` of `0` means the last run exited cleanly (which includes
-a correct no-op outside market hours — check the coverage query below to
-see whether it actually captured anything).
+`LastTaskResult` of `0` means a clean exit, which includes a correct no-op
+outside market hours. To see what was actually captured per day:
 
 ```python
 import sqlite3
 con = sqlite3.connect("data/options.db")
-cur = con.cursor()
-cur.execute(
-    "SELECT captured_at, expiry, completeness FROM snapshots "
-    "WHERE underlying='SENSEX' ORDER BY captured_at DESC LIMIT 10"
-)
-for row in cur.fetchall():
+for row in con.execute(
+    "SELECT underlying, trade_date, COUNT(DISTINCT cycle_id), ROUND(AVG(completeness),3) "
+    "FROM snapshots GROUP BY underlying, trade_date ORDER BY trade_date DESC LIMIT 20"
+):
     print(row)
 ```
 
-Or via the recorder's own CLI: `python scripts/record_chains.py --coverage`
-(reads `data/options.db`, the current schema — not the legacy NIFTY one).
+A full day is 75 cycles per underlying. Days well below that are gaps
+(sleep, Wi-Fi drops, Angel One timeouts; see `logs/errors.log`).
 
-## Rebuilding it (if the machine or repo path changes)
+## Rebuilding (if the machine or repo path changes)
 
 ```powershell
-$pythonExe = '<repo>\trading_system\.venv\Scripts\python.exe'
-$workDir   = '<repo>\trading_system'
-$action  = New-ScheduledTaskAction -Execute $pythonExe -Argument '"scripts\record_chains.py" --symbols SENSEX --exchange BFO --expiries 7 --once' -WorkingDirectory $workDir
-$trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday,Tuesday,Wednesday,Thursday,Friday -At '09:00'
+$root = '<repo>\trading_system'
+$py   = "$root\.venv\Scripts\python.exe"
+$settings = New-ScheduledTaskSettingsSet -WakeToRun -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 4)
 
-# Repetition must be built as a proper CIM instance and assigned wholesale -
-# $trigger.Repetition.Interval = "PT5M" fails silently otherwise.
-$repClass = Get-CimClass -ClassName MSFT_TaskRepetitionPattern -Namespace Root/Microsoft/Windows/TaskScheduler
-$rep = New-CimInstance -CimClass $repClass -ClientOnly
-$rep.Interval = "PT5M"; $rep.Duration = "PT7H"; $rep.StopAtDurationEnd = $false
-$trigger.Repetition = $rep
+function Add-Recorder($name, $arguments, $start, $duration) {
+  $action  = New-ScheduledTaskAction -Execute $py -Argument $arguments -WorkingDirectory $root
+  $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday,Tuesday,Wednesday,Thursday,Friday -At $start
+  $trigger.Repetition = (New-ScheduledTaskTrigger -Once -At $start -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration $duration).Repetition
+  Register-ScheduledTask -TaskName $name -Action $action -Trigger $trigger -Settings $settings
+}
+Add-Recorder "SensexChainRecorder" '"scripts\record_chains.py" --symbols SENSEX --exchange BFO --expiries 7 --strike-count 45 --once' "09:15" (New-TimeSpan -Hours 6 -Minutes 15)
+Add-Recorder "NiftyChainRecorder"  '"scripts\record_chains.py" --symbols NIFTY --exchange NFO --expiries 7 --strike-count 35 --once' "09:17" (New-TimeSpan -Hours 6 -Minutes 13)
 
-$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 4) -DontStopOnIdleEnd
-$settings.DisallowStartIfOnBatteries = $false
-$settings.StopIfGoingOnBatteries = $false
-
-Register-ScheduledTask -TaskName "SensexChainRecorder" -Action $action -Trigger $trigger -Settings $settings -Description "Captures one SENSEX option-chain snapshot cycle (7 expiries) every 5 minutes, weekdays 09:00-16:00 IST."
+$report = New-ScheduledTaskAction -Execute $py -Argument "-m research.backtest.credit_spread_live_study" -WorkingDirectory $root
+Register-ScheduledTask -TaskName "CreditSpreadWeeklyReport" -Action $report -Trigger (New-ScheduledTaskTrigger -Weekly -DaysOfWeek Saturday -At "10:00") `
+  -Settings (New-ScheduledTaskSettingsSet -WakeToRun -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 30))
 ```
-
-## Extending to NIFTY / BANKNIFTY too
-
-Add a second task the same way with `--symbols NIFTY BANKNIFTY --exchange
-NFO` (NFO is the default, so `--exchange` can be omitted for that one).
-Keep it as a separate task rather than combining symbols across exchanges
-in one command — `RecorderConfig.exchange` is a single value applied to
-every symbol in one invocation (see `core/chain_recorder.py`), so NFO and
-BFO underlyings can't share one recorder process/task.

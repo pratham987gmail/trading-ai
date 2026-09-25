@@ -1,0 +1,30 @@
+# Installed by deploy/setup_vm.sh. The VM timezone is set to Asia/Kolkata, so these times are IST.
+# Each line fires only inside market hours (09:15-15:30). The recorder also
+# checks is_market_open() itself, so holidays are skipped. flock stops a slow
+# cycle from overlapping the next one.
+SHELL=/bin/bash
+APP=__APP_DIR__
+
+# SENSEX (BFO): 09:15 ... 15:30, every 5 minutes
+15-55/5 9     * * 1-5  cd $APP && flock -n /tmp/sensex.lock .venv/bin/python scripts/record_chains.py --symbols SENSEX --exchange BFO --expiries 7 --strike-count 45 --once >> logs/cron_sensex.log 2>&1
+*/5     10-14 * * 1-5  cd $APP && flock -n /tmp/sensex.lock .venv/bin/python scripts/record_chains.py --symbols SENSEX --exchange BFO --expiries 7 --strike-count 45 --once >> logs/cron_sensex.log 2>&1
+0-30/5  15    * * 1-5  cd $APP && flock -n /tmp/sensex.lock .venv/bin/python scripts/record_chains.py --symbols SENSEX --exchange BFO --expiries 7 --strike-count 45 --once >> logs/cron_sensex.log 2>&1
+
+# NIFTY (NFO): offset 2 minutes so the two never hit Angel One's quote limit together
+17-57/5 9     * * 1-5  cd $APP && flock -n /tmp/nifty.lock .venv/bin/python scripts/record_chains.py --symbols NIFTY --exchange NFO --expiries 7 --strike-count 35 --once >> logs/cron_nifty.log 2>&1
+2-57/5  10-14 * * 1-5  cd $APP && flock -n /tmp/nifty.lock .venv/bin/python scripts/record_chains.py --symbols NIFTY --exchange NFO --expiries 7 --strike-count 35 --once >> logs/cron_nifty.log 2>&1
+2-27/5  15    * * 1-5  cd $APP && flock -n /tmp/nifty.lock .venv/bin/python scripts/record_chains.py --symbols NIFTY --exchange NFO --expiries 7 --strike-count 35 --once >> logs/cron_nifty.log 2>&1
+
+# Weekly Upstox historical backfill, Saturday 09:00 (before the credit-spread
+# report, though the two read separate databases -- options.db for the live
+# chain recorder above, historical_bars.db for this). Re-running periodically
+# extends coverage as new expiries roll off; both scripts are idempotent
+# (write_bars uses INSERT OR IGNORE), so a re-run only adds what's new.
+0 9 * * 6  cd $APP && .venv/bin/python -m scripts.backfill_upstox_underlying >> logs/cron_upstox.log 2>&1
+5 9 * * 6  cd $APP && .venv/bin/python -m scripts.backfill_upstox_options --underlying NIFTY SENSEX --count 16 --strike-range 5 >> logs/cron_upstox.log 2>&1
+
+# Weekly credit-spread report, Saturday 10:00
+0 10 * * 6  cd $APP && .venv/bin/python -m research.backtest.credit_spread_live_study >> logs/cron_report.log 2>&1
+
+# Keep cron logs from growing without bound (Sunday 03:00)
+0 3 * * 0  cd $APP && for f in logs/cron_*.log; do tail -n 5000 "$f" > "$f.tmp" && mv "$f.tmp" "$f"; done

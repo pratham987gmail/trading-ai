@@ -40,6 +40,12 @@ scikit-learn==1.9.1
 python-dotenv==1.0.1
 requests==2.32.3
 
+# --- Research: news sentiment study ---------------------------------------
+# Lexicon-based, not FinBERT: no transformers/torch install for an
+# exploratory correlation-before-trading-logic pass. See
+# research/ml/news_sentiment_study.py's docstring for the tradeoff.
+vaderSentiment==3.3.2
+
 # --- Development / test --------------------------------------------------
 pytest==8.3.4
 pytest-asyncio==0.25.0
