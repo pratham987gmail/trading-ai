@@ -1,0 +1,30 @@
+{
+  "n_trades_pooled": 131,
+  "n_trades_with_features": 131,
+  "n_folds_used": 8,
+  "baseline_take_everything": {
+    "trades": 131,
+    "win_rate_pct": 19.8,
+    "profit_factor": 0.828
+  },
+  "models": {
+    "logistic_regression": {
+      "oos_predicted_positive_trades": 57,
+      "win_rate_pct": 12.3,
+      "net_pnl": -27573.63,
+      "profit_factor": 0.271,
+      "passes_bar": false
+    },
+    "random_forest": {
+      "oos_predicted_positive_trades": 34,
+      "win_rate_pct": 11.8,
+      "net_pnl": -12490.02,
+      "profit_factor": 0.503,
+      "passes_bar": false
+    }
+  },
+  "pass_bar": {
+    "min_trades": 20,
+    "min_profit_factor": 1.3
+  }
+}
