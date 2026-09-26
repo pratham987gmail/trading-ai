@@ -199,6 +199,31 @@ def candles(underlying: str, days: int = 180) -> dict[str, Any]:
     }
 
 
+def _daily_candles_frame(underlying: str) -> "pd.DataFrame":
+    """Real daily OHLCV history for ``underlying`` (the Upstox backfill),
+    shaped for ``analysis.technical.analyse()``. Empty (not ``None``) when
+    nothing is backfilled yet, matching that function's own contract.
+    """
+    import pandas as pd
+
+    if not Path(_paths["bars"]).exists():
+        return pd.DataFrame()
+    con = sqlite3.connect(_paths["bars"])
+    try:
+        frame = pd.read_sql_query(
+            "SELECT timestamp, open, high, low, close, volume FROM bars "
+            "WHERE underlying = ? AND strike IS NULL AND interval_unit = 'day' ORDER BY timestamp",
+            con,
+            params=(underlying,),
+        )
+    finally:
+        con.close()
+    if frame.empty:
+        return frame
+    frame["timestamp"] = pd.to_datetime(frame["timestamp"])
+    return frame.set_index("timestamp")
+
+
 def _chain_dict_from_snapshot(con: sqlite3.Connection, snap: sqlite3.Row) -> dict[str, Any]:
     """Build the chain dict ``analysis.signal_engine.generate()`` expects,
     straight from a recorded ``options.db`` snapshot -- real bid/ask, unlike
@@ -268,6 +293,13 @@ def recommendation(underlying: str) -> dict[str, Any]:
     instrument = CORE_INSTRUMENTS.get(underlying)
     lot_size = instrument.lot_size if instrument else None
     risk_budget = settings.TOTAL_CAPITAL * settings.RISK_PER_TRADE_PCT / 100
+    # Real daily price history, backfilled from Upstox. generate() truncates
+    # this to `moment` itself, so the full frame is passed and it decides
+    # what's fair game as of each snapshot -- this file never look-ahead
+    # filters it. Daily (not intraday) bars: nothing intraday is recorded for
+    # the underlying itself, only for its options, so trend/structure/ATR/RSI
+    # read at daily resolution, which is what analyse() is built for anyway.
+    daily_candles = _daily_candles_frame(underlying)
 
     with _connect("options") as con:
         expiry_rows = con.execute(
@@ -289,10 +321,11 @@ def recommendation(underlying: str) -> dict[str, Any]:
             report = generate(
                 underlying=underlying,
                 chain=chain_dict,
-                candles=None,  # no intraday underlying series recorded; technical context degrades to unavailable, not faked
+                candles=daily_candles,
                 settings=settings,
                 source="recorded",
                 moment=moment,
+                interval="day",
                 lots=1,
                 risk_budget=risk_budget,
             )

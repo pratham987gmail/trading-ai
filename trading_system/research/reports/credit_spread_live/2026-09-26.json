@@ -1,0 +1,405 @@
+[
+  {
+    "generated_at": "2026-09-26T10:00:03",
+    "width_steps": 1,
+    "per_trade_budget_rupees": 100000.0,
+    "data_coverage": {
+      "NIFTY": {
+        "trading_days": 3,
+        "capture_cycles": 97
+      },
+      "SENSEX": {
+        "trading_days": 5,
+        "capture_cycles": 175
+      }
+    },
+    "verdict": "INSUFFICIENT_SAMPLE (2/30 closed trades)",
+    "overall": {
+      "closed_trades": 2,
+      "win_rate_pct": 0.0,
+      "net_pnl": -1758.11,
+      "expectancy_per_trade": -879.06,
+      "avg_win": null,
+      "avg_loss": -879.06,
+      "worst_trade": -922.39,
+      "profit_factor": 0.0,
+      "total_costs": 225.86,
+      "exit_reasons": {
+        "STOP_2X_CREDIT": 2
+      }
+    },
+    "budget_fitting_only": {
+      "closed_trades": 2,
+      "win_rate_pct": 0.0,
+      "net_pnl": -1758.11,
+      "expectancy_per_trade": -879.06,
+      "avg_win": null,
+      "avg_loss": -879.06,
+      "worst_trade": -922.39,
+      "profit_factor": 0.0,
+      "total_costs": 225.86,
+      "exit_reasons": {
+        "STOP_2X_CREDIT": 2
+      }
+    },
+    "by_underlying_side": {
+      "NIFTY_PUT": {
+        "closed_trades": 1,
+        "win_rate_pct": 0.0,
+        "net_pnl": -922.39,
+        "expectancy_per_trade": -922.39,
+        "avg_win": null,
+        "avg_loss": -922.39,
+        "worst_trade": -922.39,
+        "profit_factor": 0.0,
+        "total_costs": 113.14,
+        "exit_reasons": {
+          "STOP_2X_CREDIT": 1
+        }
+      },
+      "NIFTY_CALL": {
+        "closed_trades": 0
+      },
+      "SENSEX_PUT": {
+        "closed_trades": 0
+      },
+      "SENSEX_CALL": {
+        "closed_trades": 1,
+        "win_rate_pct": 0.0,
+        "net_pnl": -835.72,
+        "expectancy_per_trade": -835.72,
+        "avg_win": null,
+        "avg_loss": -835.72,
+        "worst_trade": -835.72,
+        "profit_factor": 0.0,
+        "total_costs": 112.72,
+        "exit_reasons": {
+          "STOP_2X_CREDIT": 1
+        }
+      }
+    },
+    "open_positions": [
+      {
+        "underlying": "NIFTY",
+        "expiry": "27OCT2026",
+        "side": "PUT",
+        "entry_time": "2026-09-25T09:47+05:30",
+        "entry_dte": 32,
+        "spot": 23057.05,
+        "one_sd_move": 833.12,
+        "short_strike": 22200.0,
+        "long_strike": 22150.0,
+        "width": 50.0,
+        "quantity": 65,
+        "credit": 5.05,
+        "max_loss_rupees": 2921.75,
+        "fits_budget": true,
+        "exit_time": null,
+        "exit_reason": null,
+        "close_cost": 4.35,
+        "gross_pnl": 45.5,
+        "costs": null,
+        "net_pnl": null,
+        "max_gap_minutes": 29.8,
+        "status": "OPEN"
+      },
+      {
+        "underlying": "NIFTY",
+        "expiry": "27OCT2026",
+        "side": "CALL",
+        "entry_time": "2026-09-25T09:47+05:30",
+        "entry_dte": 32,
+        "spot": 23057.05,
+        "one_sd_move": 833.12,
+        "short_strike": 23900.0,
+        "long_strike": 23950.0,
+        "width": 50.0,
+        "quantity": 65,
+        "credit": 7.3,
+        "max_loss_rupees": 2775.5,
+        "fits_budget": true,
+        "exit_time": null,
+        "exit_reason": null,
+        "close_cost": 9.05,
+        "gross_pnl": -113.75,
+        "costs": null,
+        "net_pnl": null,
+        "max_gap_minutes": 29.8,
+        "status": "OPEN"
+      }
+    ],
+    "skipped_entries": {
+      "NO_CREDIT_AT_BID_ASK": 2,
+      "NO_ATM_QUOTES": 4
+    },
+    "trades": [
+      {
+        "underlying": "NIFTY",
+        "expiry": "03NOV2026",
+        "side": "PUT",
+        "entry_time": "2026-09-25T09:52+05:30",
+        "entry_dte": 39,
+        "spot": 23040.5,
+        "one_sd_move": 923.63,
+        "short_strike": 22100.0,
+        "long_strike": 22050.0,
+        "width": 50.0,
+        "quantity": 65,
+        "credit": 2.6,
+        "max_loss_rupees": 3081.0,
+        "fits_budget": true,
+        "exit_time": "2026-09-25T09:57+05:30",
+        "exit_reason": "STOP_2X_CREDIT",
+        "close_cost": 15.05,
+        "gross_pnl": -809.25,
+        "costs": 113.14,
+        "net_pnl": -922.39,
+        "max_gap_minutes": 5.1,
+        "status": "CLOSED"
+      },
+      {
+        "underlying": "SENSEX",
+        "expiry": "29OCT2026",
+        "side": "CALL",
+        "entry_time": "2026-09-25T09:45+05:30",
+        "entry_dte": 34,
+        "spot": 73598.2,
+        "one_sd_move": 2818.28,
+        "short_strike": 76500.0,
+        "long_strike": 76600.0,
+        "width": 100.0,
+        "quantity": 20,
+        "credit": 1.9,
+        "max_loss_rupees": 1962.0,
+        "fits_budget": true,
+        "exit_time": "2026-09-25T09:50+05:30",
+        "exit_reason": "STOP_2X_CREDIT",
+        "close_cost": 38.05,
+        "gross_pnl": -723.0,
+        "costs": 112.72,
+        "net_pnl": -835.72,
+        "max_gap_minutes": 5.0,
+        "status": "CLOSED"
+      }
+    ]
+  },
+  {
+    "generated_at": "2026-09-26T10:00:03",
+    "width_steps": 2,
+    "per_trade_budget_rupees": 100000.0,
+    "data_coverage": {
+      "NIFTY": {
+        "trading_days": 3,
+        "capture_cycles": 97
+      },
+      "SENSEX": {
+        "trading_days": 5,
+        "capture_cycles": 175
+      }
+    },
+    "verdict": "INSUFFICIENT_SAMPLE (3/30 closed trades)",
+    "overall": {
+      "closed_trades": 3,
+      "win_rate_pct": 0.0,
+      "net_pnl": -3078.35,
+      "expectancy_per_trade": -1026.12,
+      "avg_win": null,
+      "avg_loss": -1026.12,
+      "worst_trade": -1194.92,
+      "profit_factor": 0.0,
+      "total_costs": 335.1,
+      "exit_reasons": {
+        "STOP_2X_CREDIT": 3
+      }
+    },
+    "budget_fitting_only": {
+      "closed_trades": 3,
+      "win_rate_pct": 0.0,
+      "net_pnl": -3078.35,
+      "expectancy_per_trade": -1026.12,
+      "avg_win": null,
+      "avg_loss": -1026.12,
+      "worst_trade": -1194.92,
+      "profit_factor": 0.0,
+      "total_costs": 335.1,
+      "exit_reasons": {
+        "STOP_2X_CREDIT": 3
+      }
+    },
+    "by_underlying_side": {
+      "NIFTY_PUT": {
+        "closed_trades": 1,
+        "win_rate_pct": 0.0,
+        "net_pnl": -1026.01,
+        "expectancy_per_trade": -1026.01,
+        "avg_win": null,
+        "avg_loss": -1026.01,
+        "worst_trade": -1026.01,
+        "profit_factor": 0.0,
+        "total_costs": 112.76,
+        "exit_reasons": {
+          "STOP_2X_CREDIT": 1
+        }
+      },
+      "NIFTY_CALL": {
+        "closed_trades": 0
+      },
+      "SENSEX_PUT": {
+        "closed_trades": 1,
+        "win_rate_pct": 0.0,
+        "net_pnl": -857.42,
+        "expectancy_per_trade": -857.42,
+        "avg_win": null,
+        "avg_loss": -857.42,
+        "worst_trade": -857.42,
+        "profit_factor": 0.0,
+        "total_costs": 108.42,
+        "exit_reasons": {
+          "STOP_2X_CREDIT": 1
+        }
+      },
+      "SENSEX_CALL": {
+        "closed_trades": 1,
+        "win_rate_pct": 0.0,
+        "net_pnl": -1194.92,
+        "expectancy_per_trade": -1194.92,
+        "avg_win": null,
+        "avg_loss": -1194.92,
+        "worst_trade": -1194.92,
+        "profit_factor": 0.0,
+        "total_costs": 113.92,
+        "exit_reasons": {
+          "STOP_2X_CREDIT": 1
+        }
+      }
+    },
+    "open_positions": [
+      {
+        "underlying": "NIFTY",
+        "expiry": "27OCT2026",
+        "side": "PUT",
+        "entry_time": "2026-09-25T09:47+05:30",
+        "entry_dte": 32,
+        "spot": 23057.05,
+        "one_sd_move": 833.12,
+        "short_strike": 22200.0,
+        "long_strike": 22100.0,
+        "width": 100.0,
+        "quantity": 65,
+        "credit": 10.85,
+        "max_loss_rupees": 5794.75,
+        "fits_budget": true,
+        "exit_time": null,
+        "exit_reason": null,
+        "close_cost": 8.65,
+        "gross_pnl": 143.0,
+        "costs": null,
+        "net_pnl": null,
+        "max_gap_minutes": 29.8,
+        "status": "OPEN"
+      },
+      {
+        "underlying": "NIFTY",
+        "expiry": "27OCT2026",
+        "side": "CALL",
+        "entry_time": "2026-09-25T09:47+05:30",
+        "entry_dte": 32,
+        "spot": 23057.05,
+        "one_sd_move": 833.12,
+        "short_strike": 23900.0,
+        "long_strike": 24000.0,
+        "width": 100.0,
+        "quantity": 65,
+        "credit": 14.65,
+        "max_loss_rupees": 5547.75,
+        "fits_budget": true,
+        "exit_time": null,
+        "exit_reason": null,
+        "close_cost": 16.45,
+        "gross_pnl": -117.0,
+        "costs": null,
+        "net_pnl": null,
+        "max_gap_minutes": 29.8,
+        "status": "OPEN"
+      }
+    ],
+    "skipped_entries": {
+      "NO_BID_ASK": 1,
+      "NO_ATM_QUOTES": 4
+    },
+    "trades": [
+      {
+        "underlying": "NIFTY",
+        "expiry": "03NOV2026",
+        "side": "PUT",
+        "entry_time": "2026-09-25T09:52+05:30",
+        "entry_dte": 39,
+        "spot": 23040.5,
+        "one_sd_move": 923.63,
+        "short_strike": 22100.0,
+        "long_strike": 22000.0,
+        "width": 100.0,
+        "quantity": 65,
+        "credit": 6.9,
+        "max_loss_rupees": 6051.5,
+        "fits_budget": true,
+        "exit_time": "2026-09-25T10:12+05:30",
+        "exit_reason": "STOP_2X_CREDIT",
+        "close_cost": 20.95,
+        "gross_pnl": -913.25,
+        "costs": 112.76,
+        "net_pnl": -1026.01,
+        "max_gap_minutes": 5.1,
+        "status": "CLOSED"
+      },
+      {
+        "underlying": "SENSEX",
+        "expiry": "29OCT2026",
+        "side": "PUT",
+        "entry_time": "2026-09-25T11:25+05:30",
+        "entry_dte": 34,
+        "spot": 73716.76,
+        "one_sd_move": 2790.91,
+        "short_strike": 70900.0,
+        "long_strike": 70700.0,
+        "width": 200.0,
+        "quantity": 20,
+        "credit": 0.8,
+        "max_loss_rupees": 3984.0,
+        "fits_budget": true,
+        "exit_time": "2026-09-25T11:30+05:30",
+        "exit_reason": "STOP_2X_CREDIT",
+        "close_cost": 38.25,
+        "gross_pnl": -749.0,
+        "costs": 108.42,
+        "net_pnl": -857.42,
+        "max_gap_minutes": 5.0,
+        "status": "CLOSED"
+      },
+      {
+        "underlying": "SENSEX",
+        "expiry": "29OCT2026",
+        "side": "CALL",
+        "entry_time": "2026-09-25T09:45+05:30",
+        "entry_dte": 34,
+        "spot": 73598.2,
+        "one_sd_move": 2818.28,
+        "short_strike": 76500.0,
+        "long_strike": 76700.0,
+        "width": 200.0,
+        "quantity": 20,
+        "credit": 19.95,
+        "max_loss_rupees": 3601.0,
+        "fits_budget": true,
+        "exit_time": "2026-09-25T14:05+05:30",
+        "exit_reason": "STOP_2X_CREDIT",
+        "close_cost": 74.0,
+        "gross_pnl": -1081.0,
+        "costs": 113.92,
+        "net_pnl": -1194.92,
+        "max_gap_minutes": 25.0,
+        "status": "CLOSED"
+      }
+    ]
+  }
+]
