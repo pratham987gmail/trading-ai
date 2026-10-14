@@ -218,3 +218,47 @@ def test_auto_without_token_logs_and_exits_2(tmp_path, monkeypatch):
         R.main(["auto"])
     assert e.value.code == 2
     assert "TOKEN_OR_NETWORK" in (tmp_path / "STATUS.txt").read_text()
+
+
+def test_condor_scan_v2_logs_both_indices_and_variants(tmp_path, monkeypatch):
+    from datetime import date, datetime as real_dt
+    from bot_v1 import run as R
+    from bot_v1 import report as RP
+    class FixedDT(real_dt):
+        @classmethod
+        def now(cls, tz=None): return real_dt(2026, 10, 14, 15, 10)
+    class FixedDate(date):
+        @classmethod
+        def today(cls): return date(2026, 10, 14)
+    monkeypatch.setattr(R, "datetime", FixedDT); monkeypatch.setattr(R, "date", FixedDate)
+    def chain(spot, step):
+        rows = []
+        for k in range(int(spot * 0.9) // step * step, int(spot * 1.1), step):
+            ce = max(spot - k, 0) + 30 * 2.7 ** (-abs(k - spot) / (spot * 0.01)); pe = max(k - spot, 0) + 30 * 2.7 ** (-abs(k - spot) / (spot * 0.01))
+            rows.append(dict(strike=float(k), ce_bid=ce * 0.99, ce_ask=ce * 1.01, pe_bid=pe * 0.99, pe_ask=pe * 1.01))
+        return rows
+    class FakeAPI:
+        def is_trading_day(self, d): return date.fromisoformat(d).weekday() < 5
+        def ltp(self, keys): return {"NSE_INDEX|India VIX": 20.0, "NSE_INDEX|Nifty 50": 22600.0, "BSE_INDEX|SENSEX": 72700.0}
+        def option_contracts(self, key):
+            return [{"expiry": "2026-10-15", "lot_size": 65 if "Nifty" in key else 20}]
+        def option_chain(self, key, exp): return chain(22600, 50) if "Nifty" in key else chain(72700, 100)
+        def daily_candles(self, key, a, b): return [[a, 0, 0, 0, 22600.0 if "Nifty" in key else 72700.0, 0, 0]]
+    j = Journal(tmp_path / "j.sqlite"); cfg = BotConfig()
+    R.cmd_condor_scan(cfg, j, FakeAPI())
+    tags = sorted(v for _, _, v, _ in j.open_condors())
+    assert tags == sorted(f"{u}:{v}" for u in ("NIFTY", "SENSEX") for v in ("sigma", "points100", "d10", "d20"))
+    R.cmd_condor_scan(cfg, j, FakeAPI())                       # idempotent
+    assert len(j.open_condors()) == 8
+    class Later(FixedDT):
+        @classmethod
+        def now(cls, tz=None): return real_dt(2026, 10, 15, 16, 30)
+    class LaterDate(date):
+        @classmethod
+        def today(cls): return date(2026, 10, 15)
+    monkeypatch.setattr(R, "datetime", Later); monkeypatch.setattr(R, "date", LaterDate)
+    R.cmd_condor_settle(cfg, j, FakeAPI())
+    assert j.open_condors() == []
+    st = RP.condor_stats(j)
+    assert "ALL:sigma" in set(st.variant)
+    assert st.set_index("variant").loc["NIFTY:d10", "promotion"] == "info only (secondary)"

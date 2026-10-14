@@ -36,6 +36,12 @@ def condor_stats(journal: Journal, seed: int = 0) -> pd.DataFrame:
     if not rows:
         return pd.DataFrame()
     df = pd.DataFrame(rows)
+    # v2: variant tags are "UNDERLYING:variant"; add pooled rows per variant. The promotion rule
+    # applies to the pre-registered PRIMARY only: ALL:sigma (NIFTY + SENSEX pooled).
+    if df.variant.str.contains(":").any():
+        pooled = df[df.variant.str.contains(":")].copy()
+        pooled["variant"] = "ALL:" + pooled.variant.str.split(":").str[1]
+        df = pd.concat([df, pooled], ignore_index=True)
     rng = np.random.default_rng(seed)
     out = []
     for v, g in df.groupby("variant"):
@@ -44,10 +50,11 @@ def condor_stats(journal: Journal, seed: int = 0) -> pd.DataFrame:
         boot = np.array([rng.choice(x, len(x)).mean() for _ in range(2000)]) if len(x) > 1 else np.array([x.mean()])
         p0 = float((boot <= 0).mean())
         pf = gp / gl if gl > 0 else np.inf
-        promote = len(x) >= PROMO_MIN_TRADES and pf >= PROMO_MIN_PF and p0 < PROMO_MAX_P_NONPOSITIVE
+        primary = v in ("ALL:sigma", "sigma")
+        promote = primary and len(x) >= PROMO_MIN_TRADES and pf >= PROMO_MIN_PF and p0 < PROMO_MAX_P_NONPOSITIVE
         out.append(dict(variant=v, trades=len(x), win_rate=float((x > 0).mean()), avg_r=float(x.mean()),
                         profit_factor=pf, p_avg_r_le_0=p0, rupees_net=float(g.rupees_net.sum()),
-                        promotion=("ELIGIBLE" if promote else f"not yet ({len(x)}/{PROMO_MIN_TRADES} trades)" if len(x) < PROMO_MIN_TRADES else "FAILS rule")))
+                        promotion=("info only (secondary)" if not primary else "ELIGIBLE" if promote else f"not yet ({len(x)}/{PROMO_MIN_TRADES} trades)" if len(x) < PROMO_MIN_TRADES else "FAILS rule")))
     return pd.DataFrame(out)
 
 

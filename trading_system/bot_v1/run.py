@@ -169,59 +169,79 @@ def cmd_mark(cfg, j, api):
     print(f"{date.today()}: momentum paper equity ₹{eq:,.0f} | NIFTY {l.get(D.NIFTY_KEY)}")
 
 
-def _next_expiry(api) -> tuple[str, int]:
-    contracts = api.option_contracts(D.NIFTY_KEY)
+def _next_expiry(api, key: str = D.NIFTY_KEY) -> tuple[str, int]:
+    contracts = api.option_contracts(key)
     exps = sorted({c["expiry"] for c in contracts if c.get("expiry") and c["expiry"] >= str(date.today())})
     lot = int(next(c["lot_size"] for c in contracts if c.get("expiry") == exps[0]))
     return exps[0], lot
 
 
+# Shadow condor v2 (pre-registered in research/condor_shadow_v2_prereg.md). PRIMARY = "sigma".
+CONDOR_VARIANTS = {"sigma": ("sigma", None), "points100": ("points100", None),
+                   "d10": ("sigma", 0.10), "d20": ("sigma", 0.20)}
+
+
+def _next_session(api, d: date) -> date:
+    nxt = d + timedelta(days=1)
+    for _ in range(10):                                   # next session (skips weekends and holidays)
+        try:
+            if api.is_trading_day(str(nxt)):
+                return nxt
+        except Exception:
+            if nxt.weekday() < 5:
+                return nxt
+        nxt += timedelta(days=1)
+    return nxt
+
+
 def cmd_condor_scan(cfg, j, api):
+    from dataclasses import replace as _replace
     now = datetime.now()
     if not (now.replace(hour=14, minute=45) <= now <= now.replace(hour=15, minute=29)):
         print(f"Condor scan only runs 14:45-15:29 (now {now:%H:%M}) so quotes match the rule's entry time."); return
-    expiry, lot = _next_expiry(api)
-    exp = date.fromisoformat(expiry)
-    nxt = date.today() + timedelta(days=1)
-    for _ in range(10):                                   # next NSE session (skips weekends and holidays)
+    nxt = _next_session(api, date.today())
+    logged = {(e, v) for _, e, v, _ in j.open_condors()}
+    vix = api.ltp([D.VIX_KEY])[D.VIX_KEY]
+    for name, key in D.CONDOR_UNDERLYINGS.items():
         try:
-            if api.is_trading_day(str(nxt)):
-                break
-        except Exception:
-            if nxt.weekday() < 5:
-                break
-        nxt += timedelta(days=1)
-    if exp != nxt:
-        print(f"Not the session before expiry (next expiry {expiry}). No scan."); return
-    if any(e == expiry for _, e, _, _ in j.open_condors()):
-        print("Already scanned for this expiry."); return
-    l = api.ltp([D.NIFTY_KEY, D.VIX_KEY])
-    spot, vix = l[D.NIFTY_KEY], l[D.VIX_KEY]
-    chain = api.option_chain(D.NIFTY_KEY, expiry)
-    now = datetime.now()
-    dte = (datetime.combine(exp, datetime.min.time()).replace(hour=15, minute=30) - now).total_seconds() / 86400
-    for variant in ("sigma", "points100"):
-        try:
-            plan = C.plan_condor(chain, spot, vix, expiry, dte, lot, cfg.condor, wing_mode=variant)
-            j.add_condor(expiry, variant, plan.to_dict())
-            print(f"[{variant}] SHADOW condor logged: credit {plan.credit_real:.1f} pts at real bid/ask "
-                  f"(mid {plan.credit_mid:.1f}), max loss {plan.max_loss_pts:.1f} pts, strikes "
-                  + ", ".join(f"{l.side} {l.strike:g}{l.kind}" for l in plan.legs))
-        except C.NoTrade as e:
-            j.event("CONDOR_NO_TRADE", "CONDOR", {"expiry": expiry, "variant": variant, "reason": str(e), "vix": vix})
-            print(f"[{variant}] no trade: {e}")
+            expiry, lot = _next_expiry(api, key)
+        except Exception as e:
+            print(f"{name}: could not read contracts ({e})"); continue
+        exp = date.fromisoformat(expiry)
+        if exp != nxt:
+            print(f"{name}: not the session before expiry (next expiry {expiry})."); continue
+        spot = api.ltp([key])[key]
+        chain = api.option_chain(key, expiry)
+        dte = (datetime.combine(exp, datetime.min.time()).replace(hour=15, minute=30) - datetime.now()).total_seconds() / 86400
+        for vname, (wing, delta) in CONDOR_VARIANTS.items():
+            tag = f"{name}:{vname}"
+            if (expiry, tag) in logged:
+                print(f"[{tag}] already logged for {expiry}"); continue
+            p = cfg.condor if delta is None else _replace(cfg.condor, short_delta=delta)
+            try:
+                plan = C.plan_condor(chain, spot, vix, expiry, dte, lot, p, wing_mode=wing)
+                d = plan.to_dict(); d.update(underlying=name, underlying_key=key)
+                j.add_condor(expiry, tag, d)
+                print(f"[{tag}] SHADOW condor logged: credit {plan.credit_real:.1f} pts at real bid/ask "
+                      f"(mid {plan.credit_mid:.1f}), max loss {plan.max_loss_pts:.1f} pts, strikes "
+                      + ", ".join(f"{l.side} {l.strike:g}{l.kind}" for l in plan.legs))
+            except C.NoTrade as e:
+                j.event("CONDOR_NO_TRADE", "CONDOR", {"expiry": expiry, "variant": tag, "reason": str(e), "vix": vix})
+                print(f"[{tag}] no trade: {e}")
 
 
 def cmd_condor_settle(cfg, j, api):
     for cid, expiry, variant, plan in j.open_condors():
         if expiry > str(date.today()) or (expiry == str(date.today()) and datetime.now().hour < 16):
             continue
-        candles = api.daily_candles(D.NIFTY_KEY, expiry, expiry)
+        p = json.loads(plan)
+        key = p.get("underlying_key", D.NIFTY_KEY)
+        candles = api.daily_candles(key, expiry, expiry)
         if not candles:
-            print(f"no NIFTY close for {expiry} yet"); continue
-        res = C.settle(json.loads(plan), float(candles[0][4]))
+            print(f"no {key} close for {expiry} yet"); continue
+        res = C.settle(p, float(candles[0][4]))
         j.close_condor(cid, res)
-        print(f"settled {expiry} [{variant}]: NIFTY {res['settle_spot']:,.1f}, P&L {res['pnl_pts']:+.1f} pts ({res['r']:+.2f}R, before charges)")
+        print(f"settled {expiry} [{variant}]: close {res['settle_spot']:,.1f}, P&L {res['pnl_pts']:+.1f} pts ({res['r']:+.2f}R, before charges)")
 
 
 def cmd_auto(cfg, j, api):

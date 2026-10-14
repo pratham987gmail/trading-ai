@@ -28,3 +28,14 @@ APP=__APP_DIR__
 
 # Keep cron logs from growing without bound (Sunday 03:00)
 0 3 * * 0  cd $APP && for f in logs/cron_*.log; do tail -n 5000 "$f" > "$f.tmp" && mv "$f.tmp" "$f"; done
+
+# ---- bot_v1 (paper trading; record-only condor shadow) -- moved from the laptop's Task Scheduler ----
+# The Upstox token arrives each morning from the laptop (login.bat -> deploy/push_upstox_token.ps1).
+10 15 * * 1-5  cd $APP && BOTV1_DATA=data/botv1_live flock -n /tmp/botv1.lock .venv/bin/python -m bot_v1.run auto >> logs/cron_botv1.log 2>&1
+40 15 * * 1-5  cd $APP && BOTV1_DATA=data/botv1_live flock -n /tmp/botv1.lock .venv/bin/python -m bot_v1.run auto >> logs/cron_botv1.log 2>&1
+
+# ---- Upstox live chain recorder: NIFTY + SENSEX, next 2 expiries, bid/ask/OI/IV/delta, every 5 min ----
+# offset to minute 4 so it never coincides with the Angel One captures (minutes 0/2/5/7)
+19-59/5 9     * * 1-5  cd $APP && flock -n /tmp/upx.lock .venv/bin/python -m bot_v1.recorder_upstox >> logs/cron_upstox_live.log 2>&1
+4-59/5  10-14 * * 1-5  cd $APP && flock -n /tmp/upx.lock .venv/bin/python -m bot_v1.recorder_upstox >> logs/cron_upstox_live.log 2>&1
+4-29/5  15    * * 1-5  cd $APP && flock -n /tmp/upx.lock .venv/bin/python -m bot_v1.recorder_upstox >> logs/cron_upstox_live.log 2>&1

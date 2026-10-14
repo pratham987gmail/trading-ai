@@ -17,6 +17,8 @@ from .upstox_api import UpstoxAPI
 
 NIFTY_KEY = "NSE_INDEX|Nifty 50"
 VIX_KEY = "NSE_INDEX|India VIX"
+SENSEX_KEY = "BSE_INDEX|SENSEX"
+CONDOR_UNDERLYINGS = {"NIFTY": NIFTY_KEY, "SENSEX": SENSEX_KEY}
 
 
 def load_universe(path: Path) -> list[str]:
