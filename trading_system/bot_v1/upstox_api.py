@@ -50,6 +50,18 @@ class UpstoxAPI:
                 out[v["instrument_token"]] = float(v["last_price"])
         return out
 
+    def is_trading_day(self, day: str) -> bool:
+        """NSE trading session on `day` (YYYY-MM-DD)? Weekends are closed; holidays come from
+        GET /v2/market/holidays/{date} (an NSE entry in closed_exchanges = holiday)."""
+        from datetime import date as _d
+        if _d.fromisoformat(day).weekday() >= 5:
+            return False
+        data = self._get(f"/v2/market/holidays/{day}") or []
+        for h in data if isinstance(data, list) else [data]:
+            if str(h.get("date", day))[:10] == day and "NSE" in (h.get("closed_exchanges") or []):
+                return False
+        return True
+
     def daily_candles(self, instrument_key: str, from_date: str, to_date: str) -> list[list]:
         data = self._get(f"/v3/historical-candle/{instrument_key}/days/1/{to_date}/{from_date}")
         return data.get("candles", [])

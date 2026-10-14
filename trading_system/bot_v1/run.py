@@ -7,6 +7,7 @@
   python -m bot_v1.run condor-scan           # ~15:10 on the day before a NIFTY weekly expiry (shadow only)
   python -m bot_v1.run condor-settle         # after 15:30 on/after expiry day
   python -m bot_v1.run report
+  python -m bot_v1.run auto                  # unattended: does whatever is due now (used by the Windows scheduler)
 
 Mode is PAPER unless BOTV1_MODE=LIVE (LIVE also needs BOTV1_STATIC_IPS and a static IP match).
 """
@@ -47,6 +48,14 @@ def _token() -> str:
 
 def _approve(summary: str) -> bool:
     print("\nProposed orders:\n" + summary)
+    if os.environ.get("BOTV1_AUTO") == "1":
+        # Unattended run. Paper orders are simulated, so they are approved automatically and journaled;
+        # LIVE orders always need a person to type YES (charter: per-trade confirmation).
+        if load_config().mode == "PAPER":
+            print("AUTO: paper orders approved automatically (no real money).")
+            return True
+        print("AUTO: LIVE orders need manual approval — not placed. Run momentum-rebalance by hand.")
+        return False
     return input("\nApprove ALL of the above? Type YES to approve: ").strip() == "YES"
 
 
@@ -97,7 +106,18 @@ def cmd_momentum_signal(cfg, j, api):
         print(f"Excluded for possible unadjusted split/bonus (check manually): {', '.join(sig.flagged)}")
 
 
+def _first_session_of_month(api, today: date) -> bool:
+    d = today.replace(day=1)
+    while d < today:
+        if api.is_trading_day(str(d)):
+            return False
+        d += timedelta(days=1)
+    return api.is_trading_day(str(today))
+
+
 def cmd_momentum_rebalance(cfg, j, api):
+    if os.environ.get("BOTV1_AUTO") == "1" and not _first_session_of_month(api, date.today()):
+        print("Not the first trading session of the month — no rebalance today."); return
     keys = _universe(cfg, api)
     closes, nifty = _market(cfg, api, keys)
     days = nifty.dropna().index
@@ -157,10 +177,19 @@ def _next_expiry(api) -> tuple[str, int]:
 
 
 def cmd_condor_scan(cfg, j, api):
+    now = datetime.now()
+    if not (now.replace(hour=14, minute=45) <= now <= now.replace(hour=15, minute=29)):
+        print(f"Condor scan only runs 14:45-15:29 (now {now:%H:%M}) so quotes match the rule's entry time."); return
     expiry, lot = _next_expiry(api)
     exp = date.fromisoformat(expiry)
     nxt = date.today() + timedelta(days=1)
-    while nxt.weekday() >= 5:
+    for _ in range(10):                                   # next NSE session (skips weekends and holidays)
+        try:
+            if api.is_trading_day(str(nxt)):
+                break
+        except Exception:
+            if nxt.weekday() < 5:
+                break
         nxt += timedelta(days=1)
     if exp != nxt:
         print(f"Not the session before expiry (next expiry {expiry}). No scan."); return
@@ -195,6 +224,69 @@ def cmd_condor_settle(cfg, j, api):
         print(f"settled {expiry} [{variant}]: NIFTY {res['settle_spot']:,.1f}, P&L {res['pnl_pts']:+.1f} pts ({res['r']:+.2f}R, before charges)")
 
 
+def cmd_auto(cfg, j, api):
+    """One unattended run; the Windows scheduler calls it at ~15:10 and ~15:40 on weekdays.
+    15:00-15:29: month-start paper rebalance + expiry-eve condor scan. After 15:35: mark + condor settle.
+    Every step is idempotent, so extra or repeated runs are harmless."""
+    import io, traceback
+    from contextlib import redirect_stdout
+    now = datetime.now()
+    today = str(date.today())
+    logdir = ROOT / cfg.data_dir / "logs"
+    logdir.mkdir(parents=True, exist_ok=True)
+    buf = io.StringIO()
+    status = "OK"
+
+    def step(name, fn):
+        nonlocal status
+        print(f"--- {name}")
+        try:
+            fn(cfg, j, api)
+        except SystemExit as e:              # commands use sys.exit for "nothing to do" / refusals
+            print(e.code if e.code not in (None, 0) else "done")
+        except Exception as e:
+            status = "ERROR"
+            print(f"ERROR in {name}: {e}")
+            traceback.print_exc(file=sys.stdout)
+            j.event("AUTO_ERROR", "AUTO", {"step": name, "error": str(e)})
+
+    with redirect_stdout(buf):
+        print(f"=== bot_v1 auto {now:%Y-%m-%d %H:%M:%S} mode={cfg.mode}")
+        try:
+            api.ltp([D.NIFTY_KEY])
+            trading = api.is_trading_day(today)
+        except Exception as e:
+            status = "TOKEN_OR_NETWORK"
+            trading = None
+            print(f"Upstox not reachable or token expired ({e}). Run the morning login: "
+                  ".venv\\Scripts\\python.exe -m research.cli.upstox_login")
+        if trading is False:
+            print("Market closed today (weekend/holiday). Nothing to do.")
+        elif trading:
+            hm = now.hour * 60 + now.minute
+            if 14 * 60 + 45 <= hm <= 15 * 60 + 29:
+                step("momentum-rebalance (acts only on the first trading day of a month)", cmd_momentum_rebalance)
+                step("condor-scan (acts only on the session before expiry)", cmd_condor_scan)
+            elif hm >= 15 * 60 + 35:
+                done = j.db.execute("SELECT 1 FROM marks WHERE date=? AND strategy=?", (today, X.STRAT)).fetchone()
+                step("mark", cmd_mark) if not done else print("--- mark: already recorded today")
+                step("condor-settle", cmd_condor_settle)
+            else:
+                print("Outside the bot's windows (14:45-15:29 and after 15:35). Nothing to do.")
+        print("--- report"); cmd_report(cfg, j)
+        print(f"=== status {status}")
+    out = buf.getvalue()
+    print(out)
+    with open(logdir / f"auto_{today}.log", "a", encoding="utf-8") as f:
+        f.write(out + "\n")
+    (ROOT / cfg.data_dir / "STATUS.txt").write_text(f"{now:%Y-%m-%d %H:%M} {status}\n\n{out}", encoding="utf-8")
+    j.event("AUTO_RUN", "AUTO", {"status": status})
+    if status == "TOKEN_OR_NETWORK":
+        sys.exit(2)
+    if status == "ERROR":
+        sys.exit(1)
+
+
 def cmd_report(cfg, j, api=None):
     mc = RP.momentum_curve(j)
     if mc.empty:
@@ -214,13 +306,23 @@ def cmd_report(cfg, j, api=None):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("command", choices=["check", "momentum-signal", "momentum-rebalance", "mark",
-                                        "condor-scan", "condor-settle", "report"])
+                                        "condor-scan", "condor-settle", "report", "auto"])
     a = ap.parse_args(argv)
     cfg, j = _setup()
     if a.command == "report":
         return cmd_report(cfg, j)
-    api = UpstoxAPI(_token(), cfg)
-    {"check": cmd_check, "momentum-signal": cmd_momentum_signal, "momentum-rebalance": cmd_momentum_rebalance,
+    if a.command == "auto":
+        os.environ["BOTV1_AUTO"] = "1"
+    try:
+        api = UpstoxAPI(_token(), cfg)
+    except Exception as e:
+        if a.command != "auto":
+            raise
+        class _NoAPI:                       # lets `auto` log a clear "log in" status instead of crashing
+            def __getattr__(self, name):
+                raise RuntimeError(str(e))
+        api = _NoAPI()
+    {"auto": cmd_auto, "check": cmd_check, "momentum-signal": cmd_momentum_signal, "momentum-rebalance": cmd_momentum_rebalance,
      "mark": cmd_mark, "condor-scan": cmd_condor_scan, "condor-settle": cmd_condor_settle}[a.command](cfg, j, api)
 
 

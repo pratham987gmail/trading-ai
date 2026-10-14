@@ -11,7 +11,18 @@ so it is shadow-only: it logs what it would trade at real bid/ask and never orde
 2. Make sure `.env` has `UPSTOX_CLIENT_ID`, `UPSTOX_CLIENT_SECRET`, `UPSTOX_REDIRECT_URI`.
 3. Run the tests: `.venv\Scripts\python.exe -m pytest tests/bot_v1 -q`
 
-## Every trading day
+## Automatic running (Windows Task Scheduler)
+Double-click `bot_v1\scheduler\install_tasks.bat` once. It creates three weekday tasks under
+`TradingBot` in Task Scheduler:
+- 09:10 opens `login.bat` (Upstox requires a fresh login every day — this cannot be automated)
+- 15:10 `run_auto.bat` → month-start paper rebalance (auto-approved in PAPER only) + condor scan
+- 15:40 `run_auto.bat` → daily mark + condor settlement
+Everything is idempotent and checks NSE holidays via Upstox. Output: `data\botv1_live\STATUS.txt`
+and `data\botv1_live\logs\`. If the token has expired you get a Windows notification.
+The laptop must be on (tasks wake it from sleep) and logged in. Remove with `uninstall_tasks.ps1`.
+LIVE mode is never auto-approved: real orders always need you to type YES.
+
+## Every trading day (manual alternative)
 - Morning: `.venv\Scripts\python.exe -m research.cli.upstox_login` (tokens expire daily)
 - After 15:30: `python -m bot_v1.run mark` (records paper equity vs NIFTY)
 

@@ -41,11 +41,23 @@ def plan_orders(sig: MomentumSignal, held: dict[str, dict], cash: float, prices:
             orders.append(Order(s, p["key"], "SELL", p["qty"], round(prices[s] * (1 - b), 1)))
         elif tgt < p["qty"] and (p["qty"] - tgt) / p["qty"] > RESIZE_TOLERANCE:
             orders.append(Order(s, p["key"], "SELL", p["qty"] - tgt, round(prices[s] * (1 - b), 1)))
+    buys = []
     for s, q in want.items():
         have = held.get(s, {}).get("qty", 0)
         if q > have and (have == 0 or (q - have) / q > RESIZE_TOLERANCE):
-            orders.append(Order(s, keys[s], "BUY", q - have, round(prices[s] * (1 + b), 1)))
-    return orders, notes
+            buys.append(Order(s, keys[s], "BUY", q - have, round(prices[s] * (1 + b), 1)))
+    # Kept holdings inside the resize tolerance are not trimmed, so full-size buys can exceed the cash
+    # actually available. Scale buys down to fit (cash + sells, keeping the reserve for charges)
+    # instead of letting the risk check block the whole rebalance (found by the 2006-26 backtest).
+    budget = cash + sum(o.qty * o.limit for o in orders) - equity * CASH_RESERVE
+    need = sum(o.qty * o.limit for o in buys)
+    if buys and need > budget:
+        f = max(budget, 0.0) / need
+        notes.append(f"buys scaled to {100 * f:.1f}% to fit available cash")
+        for o in buys:
+            o.qty = int(o.qty * f)
+        buys = [o for o in buys if o.qty > 0]
+    return orders + buys, notes
 
 
 def risk_check(orders: list[Order], cash: float, equity: float, prices: dict[str, float], cfg: BotConfig) -> list[str]:

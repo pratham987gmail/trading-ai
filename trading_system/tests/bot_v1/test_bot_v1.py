@@ -174,3 +174,47 @@ def test_funds_excluded_from_universe():
         assert is_fund(f), f
     for s in ["RELIANCE", "WELCORP", "BHEL", "DIVISLAB", "BANKBARODA", "MCX"]:
         assert not is_fund(s), s
+
+
+def test_rebalance_with_overweight_kept_holding_still_fits_cash():
+    """Regression (2006-26 backtest): a kept holding 15% overweight is not trimmed (inside the 20%
+    tolerance), so full-size new buys used to exceed cash and the risk check blocked the rebalance."""
+    cfg = replace(BotConfig(), momentum=replace(BotConfig().momentum, top_n=2))
+    sig = M.MomentumSignal(pd.Timestamp("2026-06-30"), 1, 1, True, True, pd.DataFrame(), ["A", "B"], "REBALANCE", [])
+    held = {"A": {"key": "KA", "qty": 575, "avg": 100.0}, "C": {"key": "KC", "qty": 100, "avg": 100.0}}
+    prices = {"A": 100.0, "B": 100.0, "C": 100.0}
+    cash = 100_000 - 57_500 - 10_000
+    orders, notes = X.plan_orders(sig, held, cash, prices, {"A": "KA", "B": "KB", "C": "KC"}, cfg)
+    assert not any(o.symbol == "A" for o in orders)                      # kept, not trimmed
+    assert X.risk_check(orders, cash, 100_000, prices, cfg) == []
+    assert any("scaled" in n for n in notes)
+
+
+def test_auto_approval_only_in_paper(monkeypatch):
+    from bot_v1 import run as R
+    monkeypatch.setenv("BOTV1_AUTO", "1")
+    monkeypatch.setenv("BOTV1_MODE", "PAPER")
+    assert R._approve("x") is True
+    monkeypatch.setenv("BOTV1_MODE", "LIVE")
+    assert R._approve("x") is False
+
+
+def test_first_session_of_month():
+    from datetime import date
+    from bot_v1 import run as R
+    class FakeAPI:
+        def __init__(self, closed): self.closed = closed
+        def is_trading_day(self, d): return date.fromisoformat(d).weekday() < 5 and d not in self.closed
+    assert R._first_session_of_month(FakeAPI(set()), date(2026, 11, 2))          # Sun 1 Nov -> Mon 2 Nov
+    assert not R._first_session_of_month(FakeAPI(set()), date(2026, 11, 3))
+    assert R._first_session_of_month(FakeAPI({"2026-10-01"}), date(2026, 10, 2))  # holiday on the 1st
+
+
+def test_auto_without_token_logs_and_exits_2(tmp_path, monkeypatch):
+    from bot_v1 import run as R
+    monkeypatch.setenv("BOTV1_DATA", str(tmp_path))
+    monkeypatch.setattr(R, "_token", lambda: "")
+    with pytest.raises(SystemExit) as e:
+        R.main(["auto"])
+    assert e.value.code == 2
+    assert "TOKEN_OR_NETWORK" in (tmp_path / "STATUS.txt").read_text()
