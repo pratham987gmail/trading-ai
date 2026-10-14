@@ -17,6 +17,8 @@ $log = Join-Path $root "data\botv1_live\logs\migrate.txt"
 Start-Transcript -Path $log -Force | Out-Null
 try {
     $sshOpts = @("-i", $KeyFile, "-o", "StrictHostKeyChecking=accept-new")
+    Write-Host "== 0/5 back up the VM's logs and reports (deploy replaces everything outside data/)"
+    ssh @sshOpts $VmHost "cd ~/trading_system && tar czf data/pre_migrate_backup_`$(date +%Y%m%d_%H%M).tgz logs research/reports paper_trades.json 2>/dev/null; ls -la data/pre_migrate_backup_*"
     Write-Host "== 1/5 deploy code, .env and crontab"
     & (Join-Path $PSScriptRoot "deploy_to_vm.ps1") -VmHost $VmHost -KeyFile $KeyFile
 
