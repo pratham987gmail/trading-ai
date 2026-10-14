@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -22,7 +23,11 @@ CREATE TABLE IF NOT EXISTS condor_shadow (id INTEGER PRIMARY KEY, created TEXT, 
 class Journal:
     def __init__(self, path: Path):
         path.parent.mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(path)
+        if os.environ.get("BOTV1_SQLITE_NOLOCK") == "1":   # shared-folder mounts without POSIX locks (single writer only)
+            self.db = sqlite3.connect(f"file:{path.as_posix()}?nolock=1", uri=True)
+            self.db.execute("PRAGMA journal_mode=MEMORY")
+        else:
+            self.db = sqlite3.connect(path)
         self.db.executescript(SCHEMA)
 
     @staticmethod

@@ -7,6 +7,7 @@ Closes are cached per symbol in data/bot_v1/closes/<SYMBOL>.csv and topped up da
 """
 from __future__ import annotations
 
+import re
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -21,7 +22,57 @@ VIX_KEY = "NSE_INDEX|India VIX"
 def load_universe(path: Path) -> list[str]:
     df = pd.read_csv(path)
     col = next(c for c in df.columns if c.strip().lower() == "symbol")
-    return sorted(df[col].astype(str).str.strip().unique().tolist())
+    return sorted(s for s in df[col].astype(str).str.strip().unique() if not is_fund(s))
+
+
+# ETFs / index funds / liquid & commodity funds trade as NSE "EQ" but are not stocks. A near-zero-volatility
+# liquid fund gets a huge vol-scaled momentum score, so they must be excluded (stocks-only re-test, Oct 2026:
+# holdout 15.2%/yr vs NIFTY 11.1%, max drawdown 27.8% vs 38.4% — still passes).
+FUND_PATTERN = re.compile(r"BEES|ETF|LIQUID|CASE|GOLD|SILVER|NIFTY|SENSEX|JUNIOR|^N100|^MON100|^MAFANG|^HNG", re.I)
+
+
+def is_fund(symbol: str) -> bool:
+    return bool(FUND_PATTERN.search(symbol))
+
+
+def build_liquidity_universe(equities_db: Path, out: Path, n: int = 200, days: int = 60) -> Path:
+    """Research universe: top-n NSE EQ stocks by average traded value over the last `days` sessions,
+    requiring ~1 year of history. Built from the project's equities.db (NSE bhavcopy)."""
+    import sqlite3
+    con = sqlite3.connect(f"file:{equities_db}?mode=ro", uri=True)
+    last = [r[0] for r in con.execute(
+        "SELECT DISTINCT trade_date FROM equity_eod WHERE series='EQ' ORDER BY trade_date DESC LIMIT ?", (days,))]
+    if not last:
+        raise RuntimeError("equities.db has no EQ rows")
+    year_ago = con.execute("SELECT DISTINCT trade_date FROM equity_eod WHERE series='EQ' AND trade_date <= date(?, '-365 days') "
+                           "ORDER BY trade_date DESC LIMIT 1", (last[0],)).fetchone()
+    q = f"""SELECT symbol, AVG(traded_value) v, COUNT(*) c FROM equity_eod
+            WHERE series='EQ' AND trade_date >= ? GROUP BY symbol HAVING c >= {int(days * 0.66)}"""
+    df = pd.read_sql(q, con, params=(last[-1],))
+    if year_ago:
+        old = {r[0] for r in con.execute("SELECT symbol FROM equity_eod WHERE series='EQ' AND trade_date=?", (year_ago[0],))}
+        df = df[df.symbol.isin(old)]
+    df = df[~df.symbol.map(is_fund)]
+    df = df.sort_values("v", ascending=False).head(n)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame({"Symbol": df.symbol, "avg_traded_value": df.v, "as_of": last[0]}).to_csv(out, index=False)
+    return out
+
+
+MASTER_URL = "https://assets.upstox.com/market-quote/instruments/exchange/NSE.json.gz"
+
+
+def load_nse_master(cache_dir: Path, max_age_hours: float = 20) -> pd.DataFrame:
+    """Upstox's public NSE instrument master (no auth), cached locally, refreshed daily."""
+    import gzip, json, time
+    import requests
+    f = cache_dir / "NSE.json.gz"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    if not f.exists() or (time.time() - f.stat().st_mtime) > max_age_hours * 3600:
+        r = requests.get(MASTER_URL, timeout=60)
+        r.raise_for_status()
+        f.write_bytes(r.content)
+    return pd.DataFrame(json.loads(gzip.decompress(f.read_bytes())))
 
 
 def equity_keys(symbols: list[str], master: pd.DataFrame) -> dict[str, str]:

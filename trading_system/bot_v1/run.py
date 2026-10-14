@@ -35,11 +35,13 @@ ROOT = Path(__file__).resolve().parent.parent      # trading_system/
 
 def _token() -> str:
     tok = os.environ.get("UPSTOX_ACCESS_TOKEN", "").strip()
-    f = ROOT / ".env.upstox_token"
-    if not tok and f.exists():
+    for f in (ROOT / ".env.upstox_token", ROOT / ".env"):       # fresh login file first, then .env
+        if tok or not f.exists():
+            continue
         for line in f.read_text(encoding="utf-8").splitlines():
             if line.startswith("UPSTOX_ACCESS_TOKEN="):
-                tok = line.split("=", 1)[1].strip()
+                tok = line.split("=", 1)[1].strip().strip('"').strip("'")
+                break
     return tok
 
 
@@ -57,9 +59,11 @@ def _setup():
 def _universe(cfg, api):
     uni_file = ROOT / cfg.data_dir / "ind_nifty200list.csv"
     if not uni_file.exists():
-        sys.exit(f"Missing {uni_file}. Download the NIFTY 200 constituent CSV from niftyindices.com and save it there.")
-    from core.upstox_instruments import download_instrument_master, load_instrument_master
-    master = load_instrument_master(download_instrument_master())
+        uni_file = ROOT / cfg.data_dir / "universe_top200_stocks.csv"
+        if not uni_file.exists():
+            uni_file = D.build_liquidity_universe(ROOT / "data" / "equities.db", uni_file)
+        print(f"universe: {uni_file.name} (top 200 stocks by 60-day traded value, ETFs/funds excluded)")
+    master = D.load_nse_master(ROOT / cfg.data_dir / "instruments")
     syms = D.load_universe(uni_file)
     keys = D.equity_keys(syms, master)
     missing = sorted(set(syms) - set(keys))

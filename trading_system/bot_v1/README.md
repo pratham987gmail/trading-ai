@@ -5,9 +5,9 @@ pre-registered design (2006-16) / holdout (2017-26) test. The condor did not pas
 so it is shadow-only: it logs what it would trade at real bid/ask and never orders.
 
 ## One-time setup (run from the `trading_system` folder)
-1. Download the NIFTY 200 constituent list from niftyindices.com (`ind_nifty200list.csv`)
-   and save it as `data/bot_v1/ind_nifty200list.csv`. Refresh it when NSE reconstitutes
-   the index (March and September).
+1. Universe: by default the bot builds `universe_top200_stocks.csv` from `data/equities.db`
+   (top 200 stocks by 60-day traded value, ETFs/index/liquid/gold/silver funds excluded —
+   the research universe). Optionally drop NSE's `ind_nifty200list.csv` in the data folder instead.
 2. Make sure `.env` has `UPSTOX_CLIENT_ID`, `UPSTOX_CLIENT_SECRET`, `UPSTOX_REDIRECT_URI`.
 3. Run the tests: `.venv\Scripts\python.exe -m pytest tests/bot_v1 -q`
 
@@ -33,9 +33,16 @@ so it is shadow-only: it logs what it would trade at real bid/ask and never orde
 - The condor's promotion rule (`report.py`): >= 50 settled shadow trades, profit factor
   >= 1.15 net of charges, and bootstrap P(avg R <= 0) < 10%. Only then consider paper/live.
 
+## Running from a shared/mounted folder
+If SQLite reports `disk I/O error` (network or VM-mounted folders without file locking), set
+`BOTV1_SQLITE_NOLOCK=1`. Only run one bot command at a time in that mode.
+
 ## Known deviations from the research backtest (all small, documented)
 - Integer shares on ₹1 lakh: very expensive stocks (1 share > ~₹3,300) are skipped.
 - 2% cash reserve for charges/limit buffers; kept holdings are only resized if >20% off target.
 - Symbols with a >20% one-day move in the past year are excluded and flagged (possible
   unadjusted split/bonus) — check them manually.
+- ETFs/funds excluded. The original backtest let gold/silver/liquid ETFs into the top 30 in some
+  months; the stocks-only re-test still passes (holdout 2017-26: 15.2%/yr vs NIFTY 11.1%,
+  max drawdown 27.8% vs 38.4%; design 2006-16 max drawdown was 50.4% — 2008).
 - Pick parity with the research on real data 2017-26: 98.5% top-30 overlap, trend filter 39/39.

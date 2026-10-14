@@ -166,3 +166,11 @@ def test_live_order_is_limit_with_algo_header(monkeypatch):
     url, body, hdr = s.posted
     assert url.endswith("/v2/order/place") and body["order_type"] == "LIMIT" and body["price"] == 101.23
     assert hdr["X-Algo-Name"] == BotConfig().algo_name and body["tag"] == BotConfig().order_tag
+
+
+def test_funds_excluded_from_universe():
+    from bot_v1.data import is_fund
+    for f in ["LIQUIDCASE", "SILVERBEES", "GOLDBEES", "NIFTYBEES", "CPSEETF", "HDFCSILVER", "LIQUIDBEES"]:
+        assert is_fund(f), f
+    for s in ["RELIANCE", "WELCORP", "BHEL", "DIVISLAB", "BANKBARODA", "MCX"]:
+        assert not is_fund(s), s
