@@ -2,6 +2,7 @@
 #   TradingBot\Login reminder   weekdays 09:10  opens login.bat (Upstox needs a fresh login daily)
 #   TradingBot\Afternoon 1510   weekdays 15:10  month-start paper rebalance + expiry-eve condor scan
 #   TradingBot\Close 1540       weekdays 15:40  daily mark + condor settlement
+#   TradingBot\Azure pull 1615  weekdays 16:15  copies new Azure recorder data into data\cloud
 # Re-running replaces them. Remove with uninstall_tasks.ps1.
 $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -18,4 +19,5 @@ function Add-BotTask($name, $time, $file) {
 Add-BotTask "Login reminder" "09:10" (Join-Path $here "login.bat")
 Add-BotTask "Afternoon 1510" "15:10" (Join-Path $here "run_auto.bat")
 Add-BotTask "Close 1540"     "15:40" (Join-Path $here "run_auto.bat")
+Add-BotTask "Azure pull 1615" "16:15" (Join-Path $here "pull_azure.bat")
 Get-ScheduledTask -TaskPath "\TradingBot\" | Select-Object TaskName, State | Format-Table -AutoSize
