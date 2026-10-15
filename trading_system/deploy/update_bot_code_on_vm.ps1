@@ -25,7 +25,7 @@ try {
 cd ~/trading_system
 md5sum bot_v1/run.py tests/bot_v1/test_bot_v1.py
 .venv/bin/python -m pytest tests/bot_v1 -q -p no:cacheprovider 2>&1 | tail -1
-.venv/bin/python -c "from bot_v1.run import CONDOR_VARIANTS as V; print('variants:', ', '.join(V))"
+grep -o '"nv[0-9a-z]*"' bot_v1/run.py | sort -u | tr '\n' ' '; echo "<- v3 variants present"
 '@
     ssh @sshOpts $VmHost $remote
     Write-Host "DONE"
