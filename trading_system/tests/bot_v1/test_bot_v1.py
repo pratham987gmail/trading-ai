@@ -247,9 +247,9 @@ def test_condor_scan_v2_logs_both_indices_and_variants(tmp_path, monkeypatch):
     j = Journal(tmp_path / "j.sqlite"); cfg = BotConfig()
     R.cmd_condor_scan(cfg, j, FakeAPI())
     tags = sorted(v for _, _, v, _ in j.open_condors())
-    assert tags == sorted(f"{u}:{v}" for u in ("NIFTY", "SENSEX") for v in ("sigma", "points100", "d10", "d20"))
+    assert tags == sorted(f"{u}:{v}" for u in ("NIFTY", "SENSEX") for v in ("sigma", "points100", "d10", "d20", "nv15w15", "nv20w15"))
     R.cmd_condor_scan(cfg, j, FakeAPI())                       # idempotent
-    assert len(j.open_condors()) == 8
+    assert len(j.open_condors()) == 12
     class Later(FixedDT):
         @classmethod
         def now(cls, tz=None): return real_dt(2026, 10, 15, 16, 30)
@@ -262,3 +262,35 @@ def test_condor_scan_v2_logs_both_indices_and_variants(tmp_path, monkeypatch):
     st = RP.condor_stats(j)
     assert "ALL:sigma" in set(st.variant)
     assert st.set_index("variant").loc["NIFTY:d10", "promotion"] == "info only (secondary)"
+
+
+def test_condor_v3_no_vix_variants_trade_when_vix_low(tmp_path, monkeypatch):
+    """v3: the no-filter wide-wing variants log at VIX 12 while the VIX>=18 rule logs nothing."""
+    from datetime import date, datetime as real_dt
+    import json
+    from bot_v1 import run as R
+    class FixedDT(real_dt):
+        @classmethod
+        def now(cls, tz=None): return real_dt(2026, 10, 14, 15, 10)
+    class FixedDate(date):
+        @classmethod
+        def today(cls): return date(2026, 10, 14)
+    monkeypatch.setattr(R, "datetime", FixedDT); monkeypatch.setattr(R, "date", FixedDate)
+    def chain(spot, step):
+        rows = []
+        for k in range(int(spot * 0.9) // step * step, int(spot * 1.1), step):
+            x = 30 * 2.7 ** (-abs(k - spot) / (spot * 0.01))
+            ce, pe = max(spot - k, 0) + x, max(k - spot, 0) + x
+            rows.append(dict(strike=float(k), ce_bid=ce * 0.99, ce_ask=ce * 1.01, pe_bid=pe * 0.99, pe_ask=pe * 1.01))
+        return rows
+    class FakeAPI:
+        def is_trading_day(self, d): return date.fromisoformat(d).weekday() < 5
+        def ltp(self, keys): return {"NSE_INDEX|India VIX": 12.0, "NSE_INDEX|Nifty 50": 22600.0, "BSE_INDEX|SENSEX": 72700.0}
+        def option_contracts(self, key): return [{"expiry": "2026-10-15", "lot_size": 65 if "Nifty" in key else 20}]
+        def option_chain(self, key, exp): return chain(22600, 50) if "Nifty" in key else chain(72700, 100)
+    j = Journal(tmp_path / "j.sqlite")
+    R.cmd_condor_scan(BotConfig(), j, FakeAPI())
+    got = {v: json.loads(p) for _, _, v, p in j.open_condors()}
+    assert sorted(got) == sorted(f"{u}:{v}" for u in ("NIFTY", "SENSEX") for v in ("nv15w15", "nv20w15"))
+    p = got["NIFTY:nv15w15"]
+    assert p["width"] >= 1.4 * p["sigma_pts"] - 50              # 1.5-sigma wings (to the nearest strike)

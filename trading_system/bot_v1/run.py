@@ -178,7 +178,11 @@ def _next_expiry(api, key: str = D.NIFTY_KEY) -> tuple[str, int]:
 
 # Shadow condor v2 (pre-registered in research/condor_shadow_v2_prereg.md). PRIMARY = "sigma".
 CONDOR_VARIANTS = {"sigma": ("sigma", None), "points100": ("points100", None),
-                   "d10": ("sigma", 0.10), "d20": ("sigma", 0.20)}
+                   "d10": ("sigma", 0.10), "d20": ("sigma", 0.20),
+                   # v3 (research/condor_shadow_v3_prereg.md): NO VIX filter, wide 1.5-sigma wings — the frozen
+                   # pick of the train<=2021 / validate 2022-26 study, plus its 20-delta neighbour. Info only.
+                   "nv15w15": ("sigma", 0.15, {"min_vix": 0.0, "wing_sigma": 1.5}),
+                   "nv20w15": ("sigma", 0.20, {"min_vix": 0.0, "wing_sigma": 1.5})}
 
 
 def _next_session(api, d: date) -> date:
@@ -213,11 +217,13 @@ def cmd_condor_scan(cfg, j, api):
         spot = api.ltp([key])[key]
         chain = api.option_chain(key, expiry)
         dte = (datetime.combine(exp, datetime.min.time()).replace(hour=15, minute=30) - datetime.now()).total_seconds() / 86400
-        for vname, (wing, delta) in CONDOR_VARIANTS.items():
+        for vname, (wing, delta, *extra) in CONDOR_VARIANTS.items():
             tag = f"{name}:{vname}"
             if (expiry, tag) in logged:
                 print(f"[{tag}] already logged for {expiry}"); continue
             p = cfg.condor if delta is None else _replace(cfg.condor, short_delta=delta)
+            if extra:
+                p = _replace(p, **extra[0])
             try:
                 plan = C.plan_condor(chain, spot, vix, expiry, dte, lot, p, wing_mode=wing)
                 d = plan.to_dict(); d.update(underlying=name, underlying_key=key)
