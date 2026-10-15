@@ -194,9 +194,9 @@ class BuyHold:
 
 # ---------------------------------------------------------------------------------- condor learner
 class CondorShadow:
-    def __init__(self, delta: float, min_vix: float):
-        self.name = f"CONDOR_d{int(delta * 100)}_vix{int(min_vix)}"
-        self.p = CondorParams(min_vix=min_vix, short_delta=delta)
+    def __init__(self, delta: float, min_vix: float, wing: float = 1.0):
+        self.name = f"CONDOR_d{int(delta * 100)}_vix{int(min_vix)}" + ("" if wing == 1.0 else f"_w{wing:g}sig")
+        self.p = CondorParams(min_vix=min_vix, short_delta=delta, wing_sigma=wing)
         self.open: list[tuple] = []          # (settle_day, plan)
         self.r: list[float] = []             # settled trade R, in settlement order
 
@@ -228,8 +228,10 @@ class CondorLearner:
 
     MIN_N = 20
 
-    def __init__(self, name: str, shadows: list[CondorShadow], capital: float, gate: bool, freeze: bool = False):
+    def __init__(self, name: str, shadows: list[CondorShadow], capital: float, gate: bool, freeze: bool = False,
+                 force: bool = False):
         self.name, self.shadows, self.gate = name, shadows, gate
+        self.force = force                           # trade the champion even if the gate says no (what-if)
         self.freeze, self.frozen = freeze, None      # frozen = (champion, gate_ok, stats) fixed on first live eve
         self.book = CondorBook(capital)
         self.warmup_from = "2015-01-01"
@@ -293,8 +295,11 @@ class CondorLearner:
             rng = np.random.default_rng(v.t)
             p = float((rng.choice(x, (2000, len(x))).mean(1) <= 0).mean())
             ok = pf >= 1.15 and p < 0.10
+        gate_said = ok
+        if self.force:
+            ok = True
         row = dict(date=str(v.today.date()), event="eve", vix=round(vix, 2), champion=champ.name, n=len(x),
-                   avg_r=round(float(x.mean()), 4) if len(x) else None, pf=round(pf, 3), p=round(p, 3), gate=ok)
+                   avg_r=round(float(x.mean()), 4) if len(x) else None, pf=round(pf, 3), p=round(p, 3), gate=ok, gate_said=gate_said)
         if self.freeze:
             self.frozen = (champ, ok, pf, p, x.copy())
             row["event"] = "freeze"
@@ -346,6 +351,9 @@ def make(name: str, capital: float = 100_000.0):
     if name == "CONDOR_FROZEN":
         return CondorLearner(name, [CondorShadow(d, m) for d in (0.10, 0.15, 0.20) for m in (0, 16, 18, 20)], capital,
                              gate=True, freeze=True)
+    if name in ("CONDOR_NOVIX_FROZEN", "CONDOR_NOVIX_FORCED"):
+        sh = [CondorShadow(d, 0, w) for d in (0.10, 0.15, 0.20) for w in (0.5, 1.0, 1.5)]
+        return CondorLearner(name, sh, capital, gate=True, freeze=True, force=name.endswith("FORCED"))
     raise KeyError(name)
 
 
