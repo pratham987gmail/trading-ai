@@ -129,8 +129,9 @@ class EquityLearner:
     index fund's (gate), otherwise holds the index fund."""
 
     def __init__(self, name: str, shadows: list[Shadow], capital: float, gate: bool, warmup_from: str,
-                 needs_universe: bool, top_n: int = 30):
+                 needs_universe: bool, top_n: int = 30, freeze: bool = False, trail: int | None = TRAIL):
         self.name, self.shadows, self.gate = name, shadows, gate
+        self.freeze, self.trail = freeze, trail     # freeze: choose once on the first live day, never again
         self.book = EquityBook(capital, top_n)
         self.warmup_from, self.needs_universe = warmup_from, needs_universe
         self.log: list[dict] = []
@@ -151,17 +152,17 @@ class EquityLearner:
             s.decide(v, uni)
         if not book.active or (self.champion is not None and not v.is_month_end()):
             return                      # first decision on the first live session, then month-ends only
-        review = self.champion is None or v.today.month in (6, 12)
+        review = self.champion is None or (not self.freeze and v.today.month in (6, 12))
         if review:
             scores = {}
             for s in self.shadows:
-                x = np.asarray(s.rets[-TRAIL:])
+                x = np.asarray(s.rets[-self.trail:] if self.trail else s.rets)
                 if len(x) >= MIN_TRAIL or len(self.shadows) == 1:
                     scores[s.name] = _sharpe(x) if len(x) > 20 else 0.0
             if scores:
                 best = max(scores, key=scores.get)
                 self.champion = next(s for s in self.shadows if s.name == best)
-                cx = np.asarray(self.champion.rets[-TRAIL:])
+                cx = np.asarray(self.champion.rets[-self.trail:] if self.trail else self.champion.rets)
                 fx = np.asarray(self.fund_rets[-len(cx):]) if len(cx) else np.array([])
                 excess = _cagr(cx) - _cagr(fx) if len(cx) else 0.0
                 self.follow_fund = self.gate and not (excess > 0)
@@ -227,8 +228,9 @@ class CondorLearner:
 
     MIN_N = 20
 
-    def __init__(self, name: str, shadows: list[CondorShadow], capital: float, gate: bool):
+    def __init__(self, name: str, shadows: list[CondorShadow], capital: float, gate: bool, freeze: bool = False):
         self.name, self.shadows, self.gate = name, shadows, gate
+        self.freeze, self.frozen = freeze, None      # frozen = (champion, gate_ok, stats) fixed on first live eve
         self.book = CondorBook(capital)
         self.warmup_from = "2015-01-01"
         self.log: list[dict] = []
@@ -277,6 +279,11 @@ class CondorLearner:
         if not elig:
             self.log.append(dict(date=str(v.today.date()), event="eve", decision="learning (no variant has 20 settled trades)"))
             return
+        if self.frozen is not None:
+            champ, ok, pf, p, x = self.frozen
+            row = dict(date=str(v.today.date()), event="eve", vix=round(vix, 2), champion=champ.name, frozen=True,
+                       gate=ok, decision="")
+            return self._act(row, champ, ok, plans, book, v, nxt)
         champ = max(elig, key=lambda s: np.mean(s.r) if s.r else 0.0)
         x = np.asarray(champ.r)
         ok, pf, p = True, float("nan"), float("nan")
@@ -288,6 +295,13 @@ class CondorLearner:
             ok = pf >= 1.15 and p < 0.10
         row = dict(date=str(v.today.date()), event="eve", vix=round(vix, 2), champion=champ.name, n=len(x),
                    avg_r=round(float(x.mean()), 4) if len(x) else None, pf=round(pf, 3), p=round(p, 3), gate=ok)
+        if self.freeze:
+            self.frozen = (champ, ok, pf, p, x.copy())
+            row["event"] = "freeze"
+            row["ranking"] = {s.name: round(float(np.mean(s.r)), 4) for s in self.shadows if s.r}
+        self._act(row, champ, ok, plans, book, v, nxt)
+
+    def _act(self, row, champ, ok, plans, book, v, nxt):
         pl = plans.get(champ.name)
         if not ok:
             row["decision"] = "no trade (champion fails promotion rule)"
@@ -322,7 +336,19 @@ def make(name: str, capital: float = 100_000.0):
         return CondorLearner(name, [CondorShadow(d, m) for d in (0.10, 0.15, 0.20) for m in (0, 16, 18, 20)], capital, gate=True)
     if name == "CONDOR_FIXED_HINDSIGHT":
         return CondorLearner(name, [CondorShadow(0.15, 18)], capital, gate=False)
+    if name == "TREND_FROZEN":
+        return EquityLearner(name, [TrendShadow(n) for n in (50, 100, 150, 200, None)], capital, gate=False,
+                             warmup_from="2006-01-01", needs_universe=False, top_n=1, freeze=True, trail=None)
+    if name == "MOM_FROZEN":
+        sh = [MomShadow(a, b, n, f) for a, b in ((63, 126), (126, 252), (189, 252)) for n in (15, 30) for f in (True, False)]
+        return EquityLearner(name, sh, capital, gate=True, warmup_from="2006-01-01", needs_universe=True,
+                             freeze=True, trail=None)
+    if name == "CONDOR_FROZEN":
+        return CondorLearner(name, [CondorShadow(d, m) for d in (0.10, 0.15, 0.20) for m in (0, 16, 18, 20)], capital,
+                             gate=True, freeze=True)
     raise KeyError(name)
 
 
+FROZEN = ["BENCH_NIFTY_FUND", "TREND_FROZEN", "MOM_FROZEN", "CONDOR_FROZEN", "TREND_LEARN", "MOM_LEARN",
+          "CONDOR_LEARN", "MOM_FIXED_HINDSIGHT", "CONDOR_FIXED_HINDSIGHT"]
 ALL = ["BENCH_NIFTY_FUND", "TREND_LEARN", "MOM_LEARN", "MOM_FIXED_HINDSIGHT", "CONDOR_LEARN", "CONDOR_FIXED_HINDSIGHT"]

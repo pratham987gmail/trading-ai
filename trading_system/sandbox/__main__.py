@@ -22,7 +22,8 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parent.parent
 CACHE = Path(os.environ.get("SANDBOX_CACHE", ROOT / "data" / "sandbox" / "store.pkl"))
 OUT = Path(os.environ.get("SANDBOX_OUT", ROOT / "data" / "sandbox" / "runs"))
-START, CAPITAL = "2015-01-01", 100_000.0
+START = os.environ.get("SANDBOX_START", "2015-01-01")
+CAPITAL = 100_000.0
 
 
 def _store():
@@ -46,8 +47,8 @@ def cmd_one(a):
 
 
 def cmd_run(a):
-    from .strategies import ALL
-    names = a.names or ALL
+    from .strategies import ALL, FROZEN
+    names = a.names or (FROZEN if START >= "2022" else ALL)
     procs = []
     for n in names:                       # isolated processes, at most 2 at a time (2 CPUs)
         procs.append(subprocess.Popen([sys.executable, "-m", "sandbox", "one", n], cwd=ROOT))
@@ -65,7 +66,7 @@ def cmd_leakcheck(a):
     ps = poisoned(s, a.cutoff)
     end = str((pd.Timestamp(a.cutoff) + pd.Timedelta(days=45)).date())
     report = {}
-    for n in (a.names or ALL):
+    for n in (a.names or (FROZEN if START >= "2022" else ALL)):
         x = run_sandbox(make(n, CAPITAL), s, START, end, None)
         y = run_sandbox(make(n, CAPITAL), ps, START, end, None)
         cut = a.cutoff
@@ -107,9 +108,9 @@ def _stats(eq: pd.Series, bench: pd.Series, trades: pd.DataFrame, rng) -> dict:
 
 
 def cmd_report(a):
-    from .strategies import ALL
+    from .strategies import ALL, FROZEN
     rng = np.random.default_rng(0)
-    runs = {n: OUT / n for n in ALL if (OUT / n / "equity.csv").exists()}
+    runs = {n: OUT / n for n in dict.fromkeys(FROZEN + ALL) if (OUT / n / "equity.csv").exists()}
     eq = {n: pd.read_csv(d / "equity.csv", index_col=0, parse_dates=True).iloc[:, 0] for n, d in runs.items()}
     bench = eq["BENCH_NIFTY_FUND"]
     rows, years = {}, {}
