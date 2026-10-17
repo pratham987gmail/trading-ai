@@ -294,3 +294,48 @@ def test_condor_v3_no_vix_variants_trade_when_vix_low(tmp_path, monkeypatch):
     assert sorted(got) == sorted(f"{u}:{v}" for u in ("NIFTY", "SENSEX") for v in ("nv15w15", "nv20w15"))
     p = got["NIFTY:nv15w15"]
     assert p["width"] >= 1.4 * p["sigma_pts"] - 50              # 1.5-sigma wings (to the nearest strike)
+
+
+# ---------------------------------------------------------------- TradingAgents advisor (paper-only)
+class _StubGraph:
+    def __init__(self, ratings):
+        self.ratings, self.calls = ratings, []
+
+    def propagate(self, ticker, date):
+        self.calls.append(ticker)
+        r = self.ratings[ticker.replace(".NS", "")]
+        if isinstance(r, Exception):
+            raise r
+        return {}, r
+
+
+def test_advisor_logs_idempotently_and_survives_a_failing_name(tmp_path):
+    from bot_v1 import advisor_tauric as AT
+    g = _StubGraph({"AAA": "Buy", "BBB": "**Sell**", "CCC": RuntimeError("no data"), "DDD": "Maybe"})
+    rows = AT.advise(["AAA", "BBB", "CCC", "DDD"], "2026-10-30", tmp_path, graph=g, log=lambda *_: None)
+    assert [r["rating"] for r in rows] == ["Buy", "Sell", "ERROR", "REVIEW"]
+    assert g.calls == ["AAA.NS", "BBB.NS", "CCC.NS", "DDD.NS"]
+    assert AT.advise(["AAA", "BBB"], "2026-10-30", tmp_path, graph=g, log=lambda *_: None) == []   # no re-roll
+    assert len(AT.load(tmp_path)) == 4
+
+
+def test_advisor_score_uses_only_post_asof_returns_and_excludes_errors(tmp_path):
+    from bot_v1 import advisor_tauric as AT
+    idx = pd.bdate_range("2026-01-01", periods=300)
+    cl = pd.DataFrame({s: 100.0 for s in "ABCD"}, index=idx)
+    asofs = [idx[i] for i in (20, 60, 100, 140, 180, 220)]
+    rows = []
+    for a in asofs:
+        i = idx.get_loc(a)
+        cl.loc[idx[i + 1]:, "A"] *= 1.0                      # level fixed at fill day ...
+        cl.loc[idx[i + 22]:, "A"] *= 1.10                    # ... A gains 10% over the next 21 sessions
+        cl.loc[idx[i + 22]:, "B"] *= 0.90
+        rows += [dict(symbol="A", asof=a, rating="Buy"), dict(symbol="B", asof=a, rating="Sell"),
+                 dict(symbol="C", asof=a, rating="Hold"), dict(symbol="D", asof=a, rating="ERROR")]
+    s = AT.score(pd.DataFrame(rows), cl)
+    assert s["cohorts"] == 6 and s["obs"] == 18 and s["excluded"] == 6
+    assert s["spread"] == pytest.approx(0.15)           # A +10% vs mean(B -10%, C 0%) = -5%
+    # a rating whose outcome is not in yet is not scored
+    late = pd.DataFrame([dict(symbol="A", asof=idx[-5], rating="Buy"), dict(symbol="B", asof=idx[-5], rating="Sell")])
+    assert AT.score(late, cl)["cohorts"] == 0
+    assert AT.to_yahoo("reliance") == "RELIANCE.NS" and AT.to_yahoo("X.BO") == "X.BO"

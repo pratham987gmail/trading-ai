@@ -313,6 +313,30 @@ def cmd_auto(cfg, j, api):
         sys.exit(1)
 
 
+def cmd_advisor_scan(cfg, j, api):
+    """Paper-only: ask TradingAgents (TauricResearch) to rate the momentum top 15 at a month-end. Never places orders."""
+    from . import advisor_tauric as AT
+    keys = _universe(cfg, api)
+    closes, nifty = _market(cfg, api, keys)
+    days = nifty.dropna().index
+    asof = days.max()
+    if not M.is_month_end(days, asof):
+        print(f"{asof.date()} is not a month-end session; the advisor is scored on month-end cohorts only. Nothing run."); return
+    rank, _ = M.rank_universe(closes, asof, cfg.momentum)
+    top = list(rank.head(AT.TOP_N).symbol)
+    rows = AT.advise(top, str(asof.date()), ROOT / cfg.data_dir)
+    j.event("ADVISOR_SCAN", "ADVISOR", {"asof": str(asof.date()), "n": len(rows), "ratings": {r["symbol"]: r["rating"] for r in rows}})
+
+
+def cmd_advisor_score(cfg, j, api):
+    from . import advisor_tauric as AT
+    keys = _universe(cfg, api)
+    closes, _ = _market(cfg, api, keys)
+    s = AT.score(AT.load(ROOT / cfg.data_dir), closes)
+    print(s)
+    print("PASS (earns a paper veto)" if AT.passes(s) else "Not yet: needs >= 6 settled monthly cohorts, >= 90 names, spread > 0, P < 0.10.")
+
+
 def cmd_report(cfg, j, api=None):
     mc = RP.momentum_curve(j)
     if mc.empty:
@@ -332,7 +356,8 @@ def cmd_report(cfg, j, api=None):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("command", choices=["check", "momentum-signal", "momentum-rebalance", "mark",
-                                        "condor-scan", "condor-settle", "report", "auto"])
+                                        "condor-scan", "condor-settle", "report", "auto",
+                                        "advisor-scan", "advisor-score"])
     a = ap.parse_args(argv)
     cfg, j = _setup()
     if a.command == "report":
@@ -349,7 +374,8 @@ def main(argv=None):
                 raise RuntimeError(str(e))
         api = _NoAPI()
     {"auto": cmd_auto, "check": cmd_check, "momentum-signal": cmd_momentum_signal, "momentum-rebalance": cmd_momentum_rebalance,
-     "mark": cmd_mark, "condor-scan": cmd_condor_scan, "condor-settle": cmd_condor_settle}[a.command](cfg, j, api)
+     "mark": cmd_mark, "condor-scan": cmd_condor_scan, "condor-settle": cmd_condor_settle,
+     "advisor-scan": cmd_advisor_scan, "advisor-score": cmd_advisor_score}[a.command](cfg, j, api)
 
 
 if __name__ == "__main__":
