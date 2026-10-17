@@ -339,3 +339,21 @@ def test_advisor_score_uses_only_post_asof_returns_and_excludes_errors(tmp_path)
     late = pd.DataFrame([dict(symbol="A", asof=idx[-5], rating="Buy"), dict(symbol="B", asof=idx[-5], rating="Sell")])
     assert AT.score(late, cl)["cohorts"] == 0
     assert AT.to_yahoo("reliance") == "RELIANCE.NS" and AT.to_yahoo("X.BO") == "X.BO"
+
+
+# ---------------------------------------------------------------- momentum health monitor
+def test_ic_monitor_reads_a_working_signal_and_triggers_the_pause_rule():
+    from bot_v1 import monitor as MON
+    rng = np.random.default_rng(1)
+    n, k = 1100, 60
+    idx = pd.bdate_range("2020-01-01", periods=n)
+    drift = rng.normal(0, 0.0012, k)                              # persistent per-stock trend -> momentum works
+    cl = pd.DataFrame(100 * np.exp(np.cumsum(rng.normal(drift, 0.012, (n, k)), axis=0)), index=idx,
+                      columns=[f"S{i:02d}" for i in range(k)])
+    h = MON.ic_history(cl, P, top=10)
+    s = MON.summarise(h)
+    assert len(h) >= 18 and s[24]["mean_ic"] > 0 and s["review"].startswith("OK")
+    # reverse the sign of the relationship: later months follow the losers -> negative ICIR -> pause
+    bad = h.copy(); bad["ic"] = -bad["ic"].abs()
+    assert MON.summarise(bad)["review"] == "PAUSE NEW MONEY AND REVIEW"
+    assert MON.summarise(h.head(5))["review"].startswith("insufficient")

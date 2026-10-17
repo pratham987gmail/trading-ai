@@ -7,7 +7,7 @@ Log: data\botv1_live\logs\update_code.txt
 param(
     [string] $VmHost = "azureuser@172.198.152.213",
     [string] $KeyFile = "$env:USERPROFILE\.ssh\azure_vm.key",
-    [string[]] $Files = @("bot_v1/run.py", "tests/bot_v1/test_bot_v1.py")
+    [string[]] $Files = @("bot_v1/run.py", "bot_v1/config.py", "bot_v1/momentum.py", "bot_v1/monitor.py", "bot_v1/advisor_tauric.py", "tests/bot_v1/test_bot_v1.py")
 )
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -23,7 +23,7 @@ try {
     }
     $remote = @'
 cd ~/trading_system
-md5sum bot_v1/run.py tests/bot_v1/test_bot_v1.py
+md5sum bot_v1/run.py bot_v1/config.py bot_v1/monitor.py bot_v1/advisor_tauric.py tests/bot_v1/test_bot_v1.py
 .venv/bin/python -m pytest tests/bot_v1 -q -p no:cacheprovider 2>&1 | tail -1
 grep -o '"nv[0-9a-z]*"' bot_v1/run.py | sort -u | tr '\n' ' '; echo "<- v3 variants present"
 '@

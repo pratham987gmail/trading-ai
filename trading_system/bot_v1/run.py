@@ -337,6 +337,17 @@ def cmd_advisor_score(cfg, j, api):
     print("PASS (earns a paper veto)" if AT.passes(s) else "Not yet: needs >= 6 settled monthly cohorts, >= 90 names, spread > 0, P < 0.10.")
 
 
+def cmd_ic_monitor(cfg, j, api):
+    """Trailing momentum IC/ICIR with the pre-registered pause rule. Needs ~4 years of closes (separate cache)."""
+    from . import monitor as MON
+    keys = _universe(cfg, api)
+    closes = D.update_closes(api, keys, ROOT / cfg.data_dir / "closes_ic", years=4)
+    h = MON.ic_history(closes, cfg.momentum)
+    out = MON.render(h)
+    print(out)
+    j.event("IC_MONITOR", "MONITOR", {"summary": MON.summarise(h)})
+
+
 def cmd_report(cfg, j, api=None):
     mc = RP.momentum_curve(j)
     if mc.empty:
@@ -357,7 +368,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("command", choices=["check", "momentum-signal", "momentum-rebalance", "mark",
                                         "condor-scan", "condor-settle", "report", "auto",
-                                        "advisor-scan", "advisor-score"])
+                                        "advisor-scan", "advisor-score", "ic-monitor"])
     a = ap.parse_args(argv)
     cfg, j = _setup()
     if a.command == "report":
@@ -375,7 +386,7 @@ def main(argv=None):
         api = _NoAPI()
     {"auto": cmd_auto, "check": cmd_check, "momentum-signal": cmd_momentum_signal, "momentum-rebalance": cmd_momentum_rebalance,
      "mark": cmd_mark, "condor-scan": cmd_condor_scan, "condor-settle": cmd_condor_settle,
-     "advisor-scan": cmd_advisor_scan, "advisor-score": cmd_advisor_score}[a.command](cfg, j, api)
+     "advisor-scan": cmd_advisor_scan, "advisor-score": cmd_advisor_score, "ic-monitor": cmd_ic_monitor}[a.command](cfg, j, api)
 
 
 if __name__ == "__main__":

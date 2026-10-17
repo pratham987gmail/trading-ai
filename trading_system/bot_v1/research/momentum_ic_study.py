@@ -17,7 +17,7 @@ from bot_v1.config import MomentumParams
 
 ROOT = Path(__file__).resolve().parents[2]
 H = (1, 2, 3, 6, 9, 12)
-SIGNALS = {"S1_bot_6_12": MomentumParams(), "S2_frozen_9_12": replace(MomentumParams(), lookback_short=189)}
+SIGNALS = {"S1_bot_6_12": replace(MomentumParams(), lookback_short=126, top_n=30),   # the rule as it was when this study ran "S2_frozen_9_12": replace(MomentumParams(), lookback_short=189)}
 
 
 def nw_t(x: np.ndarray, lags: int) -> float:

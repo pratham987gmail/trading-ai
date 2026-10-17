@@ -13,8 +13,8 @@ Mode = Literal["PAPER", "LIVE"]
 @dataclass(frozen=True)
 class MomentumParams:
     universe_size: int = 200            # NIFTY 200 constituents
-    top_n: int = 30                     # Momentum30
-    lookback_short: int = 126           # ~6 months of trading days
+    top_n: int = 15                     # locked 17 Oct 2026: top 15 beat top 30 (momentum_ic_results.md)
+    lookback_short: int = 189           # ~9 months (locked on pre-2022 data: 9/12 pick; sandbox_2022_split_results.md)
     lookback_long: int = 252            # ~12 months
     vol_window: int = 252               # 1-year daily volatility for risk adjustment
     trend_sma: int = 200                # NIFTY 200-day average trend filter

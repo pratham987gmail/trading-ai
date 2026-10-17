@@ -1,8 +1,8 @@
 """Strategy A: Momentum30 + NIFTY 200-day trend filter (pure functions, no I/O).
 
 Exactly the validated research rule (realdata/factors F03):
-  score = 0.5 * z(r6 / vol) + 0.5 * z(r12 / vol), r = log return, vol = annualised
-  1-year daily volatility; top 30 equal weight; full re-rank at June and December
+  score = 0.5 * z(r_short / vol) + 0.5 * z(r12 / vol), r = log return, vol = annualised
+  1-year daily volatility; top N (config; 15 since 17 Oct 2026) equal weight, 9/12-month lookbacks; full re-rank at June and December
   month-ends; every month-end, if NIFTY closes below its 200-day average -> all cash;
   when the filter turns back on at a month-end -> buy the current top 30.
 Prices must be corporate-action adjusted. Symbols with a single-day move beyond
