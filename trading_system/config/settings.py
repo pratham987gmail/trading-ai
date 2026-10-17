@@ -31,6 +31,11 @@ from typing import Any, Literal
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Pricing modes accepted for SIGNAL_PRICE_SOURCE (inlined so config no longer imports the old analysis/backtest code).
+_PRICE_MODES = frozenset({"conservative", "mid", "bid", "ask", "ltp"})
+_PRICE_MODE_ALIASES = {"bidask": "conservative", "bid_ask": "conservative", "bid-ask": "conservative",
+                       "worst": "conservative", "realistic": "conservative", "midpoint": "mid", "last": "ltp"}
+
 logger = logging.getLogger(__name__)
 
 # Repository-relative root: <repo>/trading_system
@@ -302,9 +307,13 @@ class Settings(BaseSettings):
         ``.env`` fails on boot instead of silently changing every price in a
         response.
         """
-        from analysis.spread_pricer import normalise_price_mode
-
-        return normalise_price_mode(v)
+        key = _PRICE_MODE_ALIASES.get(str(v).strip().lower(), str(v).strip().lower()) if v is not None else "conservative"
+        if key not in _PRICE_MODES:
+            raise ValueError(
+                f"Unknown price mode '{v}'. Valid: {', '.join(sorted(_PRICE_MODES))} "
+                f"(aliases: {', '.join(sorted(_PRICE_MODE_ALIASES))})"
+            )
+        return key
 
     @model_validator(mode="after")
     def _enforce_signal_coherence(self) -> Settings:

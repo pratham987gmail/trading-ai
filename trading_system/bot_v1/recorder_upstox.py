@@ -80,6 +80,20 @@ def status(con: sqlite3.Connection) -> None:
         print("   last run:", *r)
 
 
+def _token() -> str:
+    """Upstox access token: env var first, then the fresh login file, then .env (same rule the bot used)."""
+    root = Path(__file__).resolve().parent.parent
+    tok = os.environ.get("UPSTOX_ACCESS_TOKEN", "").strip()
+    for f in (root / ".env.upstox_token", root / ".env"):
+        if tok or not f.exists():
+            continue
+        for line in f.read_text(encoding="utf-8").splitlines():
+            if line.startswith("UPSTOX_ACCESS_TOKEN="):
+                tok = line.split("=", 1)[1].strip().strip('"').strip("'")
+                break
+    return tok
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--status", action="store_true")
@@ -88,7 +102,6 @@ def main(argv=None) -> int:
     if a.status:
         status(con)
         return 0
-    from .run import _token
     ts = datetime.now().isoformat(timespec="seconds")
     try:
         api = UpstoxAPI(_token(), load_config())
